@@ -7,6 +7,7 @@ import {
   StyleSheet
 } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
+import { StatusBar } from 'expo-status-bar';
 import { hp, wp } from '../utilities/dimensions';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { router } from 'expo-router';
@@ -18,6 +19,7 @@ export default function TermsOfServiceScreen() {
 
   return (
     <ScreenWrapper bg="#F9FAFB">
+      <StatusBar style="dark" />
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>

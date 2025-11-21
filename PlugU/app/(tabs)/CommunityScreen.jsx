@@ -1,9 +1,11 @@
 import React, { useState, useEffect  } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert, StyleSheet, FlatList} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Heart, MessageCircle, Share2, MoreVertical, Send } from 'lucide-react-native';
 import { hp, wp } from '../../utilities/dimensions';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { router } from 'expo-router';
+
 const mockPosts = [
   {
     id: '1',
@@ -255,6 +257,7 @@ export default function CommunityScreen({  newPostData }) {
 
   return (
     <ScreenWrapper bg={"#F9FAFB"}>
+      <StatusBar style="dark" />
        <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>

@@ -15,6 +15,8 @@ import { Mail, Lock, ShoppingBag, Eye, EyeOff } from 'lucide-react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { hp, wp } from '../utilities/dimensions';
 import { router } from 'expo-router';
+import { useContext } from 'react';
+import { AuthContext } from '../context/authContext';
 
 const LoginScreen = () => {
   const [email, setEmail] = useState('');
@@ -25,11 +27,24 @@ const LoginScreen = () => {
     router.replace("/SignUpScreen");
   };
 
-  const onLogin = () => {
-    router.replace("/(tabs)/HomeScreen");
+  const { login } = useContext(AuthContext);
+
+  const handleSubmit = async () => {
+    if (!email || !password) {
+      alert("Please enter your email and password.");
+      return;
+    }
+
+    try {
+      await login(email.trim(), password);
+      router.replace("/(tabs)/HomeScreen");
+    } catch (error) {
+      alert(error.message);
+    }
   };
 
-  const waveAnim1 = useState(new Animated.Value(0))[0];
+
+  const waveAnim1 = useState(new Animated.Value(5))[0];
   const waveAnim2 = useState(new Animated.Value(0))[0];
   const waveAnim3 = useState(new Animated.Value(0))[0];
   const fadeAnim = useState(new Animated.Value(0))[0];
@@ -80,10 +95,6 @@ const LoginScreen = () => {
         useNativeDriver: true,
       }),
     ]).start();
-  };
-
-  const handleSubmit = () => {
-    onLogin();
   };
 
   const wave1TranslateY = waveAnim1.interpolate({

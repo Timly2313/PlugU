@@ -10,6 +10,7 @@ import { ArrowLeft, TrendingUp, Eye, Heart, MessageCircle } from 'lucide-react-n
 import { hp, wp } from '../utilities/dimensions';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 
 // Mock data
 const viewsData = [
@@ -140,6 +141,7 @@ export default function AnalyticsScreen() {
 
   return (
     <ScreenWrapper bg="#F9FAFB">
+      <StatusBar style="dark" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBack}>

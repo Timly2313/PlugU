@@ -11,6 +11,9 @@ import {
 } from 'react-native';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { hp, wp } from '../utilities/dimensions';
+import { StatusBar } from 'expo-status-bar';
+import ScreenWrapper from '../components/ScreenWrapper';
+import { router } from 'expo-router';
 
 const conversationData = {
   name: 'Sarah Johnson',
@@ -50,7 +53,7 @@ const conversationData = {
   ],
 };
 
-export default function ConversationScreen({ conversationId, onBack }) {
+export default function ConversationScreen({ conversationId,  }) {
   const [message, setMessage] = useState('');
 
   const handleSend = () => {
@@ -59,6 +62,10 @@ export default function ConversationScreen({ conversationId, onBack }) {
       setMessage('');
     }
   };
+
+  const onBack = () => {
+    router.back();
+  }
 
   const renderMessage = (msg) => (
     <View
@@ -91,11 +98,13 @@ export default function ConversationScreen({ conversationId, onBack }) {
   );
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-    >
+    <ScreenWrapper>
+       <KeyboardAvoidingView 
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+      <StatusBar style="dark" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBack}>
@@ -143,6 +152,8 @@ export default function ConversationScreen({ conversationId, onBack }) {
         </View>
       </View>
     </KeyboardAvoidingView>
+    </ScreenWrapper>
+     
   );
 }
 

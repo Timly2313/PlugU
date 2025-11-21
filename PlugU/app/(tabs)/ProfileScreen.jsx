@@ -9,13 +9,13 @@ import {
   StyleSheet,
   Alert,
   Image,
-  StatusBar
 } from 'react-native';
 import { LogOut, TrendingUp, DollarSign, Eye, Package, Settings, Edit, Heart, MoreVertical, Trash2, Pencil } from 'lucide-react-native';
 import { hp, wp } from '../../utilities/dimensions';
 import ListingCard from '../../components/ListingCard';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { router } from 'expo-router';
+import {StatusBar} from 'expo-status-bar';
 
 const userStats = [
   { label: 'Active Listings', value: '8', icon: Package },
@@ -230,30 +230,35 @@ export default function ProfileScreen({  onMarkAsSold }) {
 
   return (
     <ScreenWrapper bg={"#3F51B5"}>
-      <StatusBar hidden={false} barStyle="light-content" />
+      <StatusBar style="light" />
       <View style={styles.container}>
-        {/* Banner Section with Logout */}
-        <View style={styles.bannerSection}>
-          <View style={styles.banner} />
-          <View style={styles.headerButtons}>
-            <TouchableOpacity style={styles.headerButton} onPress={onSettings}>
-              <Settings size={wp(5)} color="white" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.headerButton} onPress={onLogout}>
-              <LogOut size={wp(5)} color="white" />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>JD</Text>
-            </View>
-          </View>
-        </View>
 
+        {/* NOTE: banner & avatar moved INSIDE the ScrollView so they scroll out of view */}
         <ScrollView 
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: hp(4) }}
         >
+          {/* Banner Section (now scrollable) */}
+          <View style={styles.bannerSection}>
+            <View style={styles.banner} />
+            <View style={styles.headerButtons}>
+              <TouchableOpacity style={styles.headerButton} onPress={onSettings}>
+                <Settings size={wp(5)} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.headerButton} onPress={onLogout}>
+                <LogOut size={wp(5)} color="white" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Avatar now part of scroll content so it will scroll away */}
+            <View style={styles.avatarContainerInline}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>JD</Text>
+              </View>
+            </View>
+          </View>
+
           {/* User Info */}
           <View style={styles.userInfo}>
             <Text style={styles.userName}>John Doe</Text>
@@ -301,7 +306,6 @@ export default function ProfileScreen({  onMarkAsSold }) {
           <View style={styles.listingsContainer}>
             <View style={styles.listingsHeader}>
               <Text style={styles.listingsTitle}>My Listings</Text>
-              
             </View>
             <FlatList
               data={userListings}
@@ -530,6 +534,11 @@ const styles = StyleSheet.create({
     transform: [{ translateX: -wp(15) }],
     bottom: -hp(5),
   },
+  avatarContainerInline: {
+    position: 'relative',
+    alignSelf: 'center',
+    marginTop: hp(-10),
+  },
   avatar: {
     width: wp(30),
     height: wp(30),
@@ -555,7 +564,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   userInfo: {
-    paddingTop: hp(7),
+    paddingTop: hp(1.2),
     paddingBottom: hp(2),
     alignItems: 'center',
     paddingHorizontal: wp(4),

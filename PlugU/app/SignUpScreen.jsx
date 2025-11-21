@@ -16,8 +16,10 @@ import { Mail, Lock, User, ShoppingBag, Eye, EyeOff } from 'lucide-react-native'
 import ScreenWrapper from '../components/ScreenWrapper';
 import { hp, wp } from '../utilities/dimensions';
 import { router } from 'expo-router';
+import { useContext } from 'react';
+import { AuthContext } from '../context/authContext';
 
-const SignUpScreen = ({ onSignUp }) => {
+const SignUpScreen = ( ) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,6 +45,29 @@ const SignUpScreen = ({ onSignUp }) => {
   const onLoginClick = () => {
     router.replace("/LoginScreen");
   };
+
+  const { signUp } = useContext(AuthContext);
+  const handleSubmit = async () => {
+  if (!agreeToTerms) {
+    Alert.alert('Error', 'Please accept the Terms and Conditions');
+    return;
+  }
+  if (password !== confirmPassword) {
+    Alert.alert('Error', 'Passwords do not match');
+    return;
+  }
+
+  const { error } = await signUp(email, password, name);
+
+  if (error) {
+    Alert.alert('Error', error.message);
+    return;
+  }
+
+  Alert.alert("Success", "Account created! Check your email for confirmation.");
+  router.replace("/LoginScreen");
+};
+
 
   useEffect(() => {
     startWaveAnimations();
@@ -89,18 +114,6 @@ const SignUpScreen = ({ onSignUp }) => {
         useNativeDriver: true,
       }),
     ]).start();
-  };
-
-  const handleSubmit = () => {
-    if (!agreeToTerms) {
-      Alert.alert('Error', 'Please accept the Terms and Conditions');
-      return;
-    }
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
-    onSignUp();
   };
 
   const wave1TranslateY = waveAnim1.interpolate({

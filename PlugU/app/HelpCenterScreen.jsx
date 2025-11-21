@@ -10,6 +10,7 @@ import {
   Platform
 } from 'react-native';
 import { ArrowLeft, Send, Bot } from 'lucide-react-native';
+import { StatusBar } from 'expo-status-bar';
 import { hp, wp } from '../utilities/dimensions';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { router } from 'expo-router';
@@ -126,6 +127,7 @@ export default function HelpCenterScreen() {
 
   return (
     <ScreenWrapper bg="#F9FAFB">
+      <StatusBar style="dark" />
       <KeyboardAvoidingView 
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

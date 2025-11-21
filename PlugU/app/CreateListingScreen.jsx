@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert, StyleSheet, KeyboardAvoidingView, Platform,} from 'react-native';
 import { ArrowLeft, ImageIcon, Video, X, Plus } from 'lucide-react-native';
+import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import { hp, wp } from '../utilities/dimensions';
 import { router } from 'expo-router';
@@ -107,6 +108,7 @@ export default function CreateListingScreen({ onSubmit }) {
 
   return (
     <ScreenWrapper>
+      <StatusBar style="dark" />
         <View style={styles.container}>
         {/* HEADER */}
         <View style={styles.header}>

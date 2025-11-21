@@ -1,9 +1,10 @@
-import { useEffect } from "react";
-import { Slot, useRouter } from "expo-router";
+import { Slot } from "expo-router";
+import { AuthProvider } from "../context/authContext";
 
 export default function RootLayout() {
-  const router = useRouter();
-
-  // Must render Slot immediately (required by Expo Router)
-  return <Slot />;
+  return (
+    <AuthProvider>
+      <Slot />
+    </AuthProvider>
+  );
 }

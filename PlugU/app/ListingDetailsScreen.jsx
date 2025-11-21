@@ -10,13 +10,13 @@ import {
   StyleSheet
 } from 'react-native';
 import { 
-  ArrowLeft, 
-  MapPin, 
-  Bookmark, 
-  Share2, 
-  MessageCircle, 
-  Send, 
-  ChevronLeft, 
+  ArrowLeft,
+  MapPin,
+  Bookmark,
+  Share2,
+  MessageCircle,
+  Send,
+  ChevronLeft,
   ChevronRight,
   Star
 } from 'lucide-react-native';
@@ -24,6 +24,7 @@ import { hp, wp } from '../utilities/dimensions';
 import ScreenWrapper from '../components/ScreenWrapper';
 import ListingCard from '../components/ListingCard';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 
 // Mock listing data
 const listingData = {
@@ -131,6 +132,7 @@ export default function ListingDetailScreen({ listingId, onMessage, onViewListin
 
   return (
     <ScreenWrapper bg="#F9FAFB">
+      <StatusBar style="dark" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBack}>

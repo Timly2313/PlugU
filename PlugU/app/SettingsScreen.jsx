@@ -12,6 +12,7 @@ import { hp, wp } from '../utilities/dimensions';
 import ScreenWrapper from '../components/ScreenWrapper';
 import ContactSupportModal from '../components/ContactSupportModal';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 
 const settingsSections = [
   {
@@ -191,6 +192,7 @@ export default function SettingsScreen() {
 
   return (
     <ScreenWrapper bg="#F9FAFB">
+      <StatusBar style="dark" />
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>

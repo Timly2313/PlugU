@@ -16,6 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { hp, wp } from '../utilities/dimensions';
 import { router } from 'expo-router';
 import ScreenWrapper from '../components/ScreenWrapper';
+import { StatusBar } from 'expo-status-bar';
 
 export default function CreatePostScreen({ onSubmit }) {
   const onBack = () => router.back();
@@ -109,6 +110,7 @@ export default function CreatePostScreen({ onSubmit }) {
 
   return (
     <ScreenWrapper>
+      <StatusBar barStyle="dark-content" />
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>

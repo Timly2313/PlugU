@@ -5,6 +5,7 @@ import { ArrowLeft, Lock, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-reac
 import { hp, wp } from '../utilities/dimensions'; 
 import ScreenWrapper from '../components/ScreenWrapper';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 
 const ChangePasswordScreen = ({ onSave }) => {
 
@@ -109,8 +110,10 @@ const ChangePasswordScreen = ({ onSave }) => {
   );
 
   return (
+   
+      
     <ScreenWrapper bg="#f9fafb">
-
+      <StatusBar style="dark" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
@@ -256,6 +259,7 @@ const ChangePasswordScreen = ({ onSave }) => {
 
       </KeyboardAvoidingView>
     </ScreenWrapper>
+   
   );
 };
 

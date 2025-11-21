@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react-native';
 import { hp, wp } from '../utilities/dimensions';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 
 export default function PrivacyPolicyScreen() {
   const onBack = () => {
@@ -12,6 +13,7 @@ export default function PrivacyPolicyScreen() {
 
   return (
     <ScreenWrapper bg="#F9FAFB">
+      <StatusBar style="dark" />
        <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>

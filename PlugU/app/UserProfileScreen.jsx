@@ -13,6 +13,7 @@ import { ArrowLeft, Star, Heart, Share2, Bookmark, MapPin } from 'lucide-react-n
 import { hp, wp } from '../utilities/dimensions';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 
 const UserProfileScreen = ({ userId }) => {
   
@@ -141,76 +142,77 @@ const UserProfileScreen = ({ userId }) => {
   );
 
   return (
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Banner Section with Floating Back Button */}
-        <View style={styles.bannerSection}>
-          <View style={styles.banner} />
-          {/* Floating Back Button */}
-          <TouchableOpacity style={styles.floatingBackButton} onPress={onBack}>
-            <ArrowLeft size={wp(5)} color="white" />
-          </TouchableOpacity>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <View style={styles.avatarContent}>
-                <Text style={styles.avatarText}>{userData.avatar}</Text>
-              </View>
-            </View>
+  <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+    <StatusBar style="light" />
+    {/* Banner Section with Floating Back Button */}
+    <View style={styles.bannerSection}>
+      <View style={styles.banner} />
+      {/* Floating Back Button */}
+      <TouchableOpacity style={styles.floatingBackButton} onPress={onBack}>
+        <ArrowLeft size={wp(5)} color="white" />
+      </TouchableOpacity>
+      <View style={styles.avatarContainer}>
+        <View style={styles.avatar}>
+          <View style={styles.avatarContent}>
+            <Text style={styles.avatarText}>{userData.avatar}</Text>
           </View>
         </View>
+      </View>
+    </View>
 
-        {/* User Info */}
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{userData.name}</Text>
-          
-          {/* Rating and Member Since */}
-          <View style={styles.ratingContainer}>
-            <Star size={wp(3.5)} color="#3F51B5" fill="#3F51B5" />
-            <Text style={styles.ratingText}>{userData.rating}</Text>
-            <Text style={styles.separator}>•</Text>
-            <Text style={styles.memberSince}>Member since {userData.memberSince}</Text>
-          </View>
+    {/* User Info */}
+    <View style={styles.userInfo}>
+      <Text style={styles.userName}>{userData.name}</Text>
+      
+      {/* Rating and Member Since */}
+      <View style={styles.ratingContainer}>
+        <Star size={wp(3.5)} color="#3F51B5" fill="#3F51B5" />
+        <Text style={styles.ratingText}>{userData.rating}</Text>
+        <Text style={styles.separator}>•</Text>
+        <Text style={styles.memberSince}>Member since {userData.memberSince}</Text>
+      </View>
 
-          {/* Location */}
-          <View style={styles.locationContainer}>
-            <MapPin size={wp(3.5)} color="#6B7280" />
-            <Text style={styles.locationText}>{userData.location}</Text>
-          </View>
+      {/* Location */}
+      <View style={styles.locationContainer}>
+        <MapPin size={wp(3.5)} color="#6B7280" />
+        <Text style={styles.locationText}>{userData.location}</Text>
+      </View>
 
-          {/* User Bio */}
-          <Text style={styles.userBio}>{userData.bio}</Text>
+      {/* User Bio */}
+      <Text style={styles.userBio}>{userData.bio}</Text>
+    </View>
+
+    {/* Stats */}
+    <View style={styles.statsContainer}>
+      <View style={styles.statsGrid}>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{userData.totalListings}</Text>
+          <Text style={styles.statLabel}>Listings</Text>
         </View>
-
-        {/* Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{userData.totalListings}</Text>
-              <Text style={styles.statLabel}>Listings</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{userData.soldItems}</Text>
-              <Text style={styles.statLabel}>Sold</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{userData.rating}</Text>
-              <Text style={styles.statLabel}>Rating</Text>
-            </View>
-          </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{userData.soldItems}</Text>
+          <Text style={styles.statLabel}>Sold</Text>
         </View>
-
-        {/* Listings */}
-        <View style={styles.listingsContainer}>
-          <Text style={styles.listingsTitle}>All Listings</Text>
-          <FlatList
-            data={userListings}
-            renderItem={renderListingItem}
-            keyExtractor={(item) => item.id}
-            numColumns={2}
-            scrollEnabled={false}
-            contentContainerStyle={styles.listingsGrid}
-          />
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>{userData.rating}</Text>
+          <Text style={styles.statLabel}>Rating</Text>
         </View>
-      </ScrollView>
+      </View>
+    </View>
+
+    {/* Listings */}
+    <View style={styles.listingsContainer}>
+      <Text style={styles.listingsTitle}>All Listings</Text>
+      <FlatList
+        data={userListings}
+        renderItem={renderListingItem}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        scrollEnabled={false}
+        contentContainerStyle={styles.listingsGrid}
+      />
+    </View>
+  </ScrollView>
   );
 };
 
