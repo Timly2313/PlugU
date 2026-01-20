@@ -14,6 +14,7 @@ import { LogOut, TrendingUp, DollarSign, Eye, Package, Settings, Edit, Heart, Mo
 import { hp, wp } from '../../utilities/dimensions';
 import ListingCard from '../../components/ListingCard';
 import ScreenWrapper from '../../components/ScreenWrapper';
+import { useAuth } from "../../context/authContext";
 import { router } from 'expo-router';
 import {StatusBar} from 'expo-status-bar';
 
@@ -82,11 +83,13 @@ const initialUserListings = [
   },
 ];
 
-export default function ProfileScreen({  onMarkAsSold }) {
+export default function ProfileScreen() {
+  const { profile, logout } = useAuth();
   const [userListings, setUserListings] = useState(initialUserListings);
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
+
 
   const onSettings = () => {
     router.push("/SettingsScreen");
@@ -109,9 +112,11 @@ export default function ProfileScreen({  onMarkAsSold }) {
   };
 
 
-  const onLogout = () => {
-    router.push("/LoginScreen");
+  const onLogout = async () => {
+    await logout();
+    router.replace("/LoginScreen");
   };
+
   
   // Handle dots click (show action menu)
   const handleDotsClick = (listing) => {
@@ -241,7 +246,15 @@ export default function ProfileScreen({  onMarkAsSold }) {
         >
           {/* Banner Section (now scrollable) */}
           <View style={styles.bannerSection}>
+            {profile?.banner_url ? (
+          <Image
+              source={{ uri: profile.banner_url }}
+              style={styles.banner}
+            />
+          ) : (
             <View style={styles.banner} />
+          )}
+
             <View style={styles.headerButtons}>
               <TouchableOpacity style={styles.headerButton} onPress={onSettings}>
                 <Settings size={wp(5)} color="white" />
@@ -253,18 +266,36 @@ export default function ProfileScreen({  onMarkAsSold }) {
 
             {/* Avatar now part of scroll content so it will scroll away */}
             <View style={styles.avatarContainerInline}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>JD</Text>
-              </View>
+            <View style={styles.avatar}>
+              {profile?.avatar_url ? (
+                <Image
+                  source={{ uri: profile.avatar_url }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <Text style={styles.avatarText}>
+                  {profile?.full_name?.charAt(0)?.toUpperCase() ?? "U"}
+                </Text>
+              )}
+            </View>
+
             </View>
           </View>
 
           {/* User Info */}
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>John Doe</Text>
-            <Text style={styles.description}>
-              Hello! I am John, a passionate buyer and seller on PlugU. I love finding great deals and connecting with fellow community members.
+            <Text style={styles.userName}>
+              {profile?.full_name || "User"}
             </Text>
+            <Text
+              style={styles.description}
+              numberOfLines={3}
+              ellipsizeMode="tail"
+            >
+              {profile?.description || "No description yet"}
+            </Text>
+
+
             <View style={styles.editButtonsContainer}>
               <TouchableOpacity style={styles.editButton} onPress={onEditProfile}>
                 <Edit size={wp(3.5)} color="#3F51B5" />
@@ -563,6 +594,12 @@ const styles = StyleSheet.create({
     fontSize: wp(5),
     fontWeight: '600',
   },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: wp(12),
+  },
+
   userInfo: {
     paddingTop: hp(1.2),
     paddingBottom: hp(2),
@@ -575,6 +612,7 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: hp(0.5),
   },
+
   description: {
     fontSize: wp(3.5),
     color: '#6B7280',
@@ -582,6 +620,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: hp(2.2),
   },
+
+
   editButtonsContainer: {
     flexDirection: 'row',
     gap: wp(2),

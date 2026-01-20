@@ -16,10 +16,12 @@ import { Mail, Lock, User, ShoppingBag, Eye, EyeOff } from 'lucide-react-native'
 import ScreenWrapper from '../components/ScreenWrapper';
 import { hp, wp } from '../utilities/dimensions';
 import { router } from 'expo-router';
-import { useContext } from 'react';
-import { AuthContext } from '../context/authContext';
+import {useAuth} from '../context/authContext'
 
 const SignUpScreen = ( ) => {
+  const { signUp, loading } = useAuth();
+
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -46,27 +48,38 @@ const SignUpScreen = ( ) => {
     router.replace("/LoginScreen");
   };
 
-  const { signUp } = useContext(AuthContext);
-  const handleSubmit = async () => {
+
+const handleSubmit = async () => {
   if (!agreeToTerms) {
     Alert.alert('Error', 'Please accept the Terms and Conditions');
     return;
   }
+
+  if (!name || !email || !password) {
+    Alert.alert('Error', 'All fields are required');
+    return;
+  }
+
   if (password !== confirmPassword) {
     Alert.alert('Error', 'Passwords do not match');
     return;
   }
 
-  const { error } = await signUp(email, password, name);
+  try {
+    await signUp(email, password, name);
 
-  if (error) {
-    Alert.alert('Error', error.message);
-    return;
+    Alert.alert(
+      "Success",
+      "Account created! Check your email for confirmation."
+    );
+
+    router.replace("/LoginScreen");
+
+  } catch (error) {
+    Alert.alert("Sign up failed", error.message);
   }
-
-  Alert.alert("Success", "Account created! Check your email for confirmation.");
-  router.replace("/LoginScreen");
 };
+
 
 
   useEffect(() => {
@@ -329,17 +342,20 @@ const SignUpScreen = ( ) => {
                   </Text>
                 </Text>
               </View>
-
+              
               <TouchableOpacity
                 style={[
                   styles.submitButton,
-                  !agreeToTerms && styles.submitButtonDisabled,
+                  (!agreeToTerms || loading) && styles.submitButtonDisabled,
                 ]}
                 onPress={handleSubmit}
-                disabled={!agreeToTerms}
+                disabled={!agreeToTerms || loading}
               >
-                <Text style={styles.submitButtonText}>Create Account</Text>
+                <Text style={styles.submitButtonText}>
+                  {loading ? "Creating account..." : "Create Account"}
+                </Text>
               </TouchableOpacity>
+
             </View>
 
             <View style={styles.footer}>

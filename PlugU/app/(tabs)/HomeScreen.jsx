@@ -16,6 +16,8 @@ import { useRouter } from "expo-router";
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { hp, wp } from '../../utilities/dimensions';
 import ListingCard from '../../components/ListingCard'
+import { useAuth } from "../../context/authContext";
+
 
 const mockListings = [
   {
@@ -69,6 +71,9 @@ const mockListings = [
 ];
 
 export default function MarketScreen() {
+ 
+  const { profile } = useAuth();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [likedListings, setLikedListings] = useState(new Set());
@@ -106,16 +111,14 @@ export default function MarketScreen() {
         <View style={styles.heroSection}>
           <View style={styles.header}>
             <View>
-              <Text style={styles.greeting}>Hi Timly</Text>
+              <Text style={styles.greeting}>Hi {profile?.username || "User"}</Text>
               <Text style={styles.subtitle}>
                 Let's get you what you're looking for.
               </Text>
             </View>
             <View style={styles.avatarContainer}>
               <Image
-                source={{
-                  uri: "https://images.unsplash.com/photo-1531299983330-093763e1d963?w=200&h=200&fit=crop",
-                }}
+                source={{ uri: profile?.avatar_url }}
                 style={styles.avatar}
               />
             </View>
@@ -240,6 +243,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: '100%',
     height: '100%',
+    
   },
   dealCard: {
     backgroundColor: '#E0E7FF',

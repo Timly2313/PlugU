@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -9,33 +9,107 @@ import {
   StyleSheet,
   Alert,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  StatusBar
 } from 'react-native';
 import { ArrowLeft, User, Mail, MapPin, Phone, Camera } from 'lucide-react-native';
 import { hp, wp } from '../utilities/dimensions';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { useAuth } from '../context/authContext';
+import { supabase } from "../lib/supabase";
+import { uploadMediaToSupabase } from '../services/imageService';
+
+
+
 
 export default function EditProfileScreen() {
-  const [name, setName] = useState('John Doe');
-  const [email, setEmail] = useState('john.doe@email.com');
-  const [phone, setPhone] = useState('+1 (555) 123-4567');
-  const [location, setLocation] = useState('Auckland Park');
-  const [bannerImage, setBannerImage] = useState(null);
+  const { user, profile, refreshProfile } = useAuth();
+
+  const [name, setName] = useState('');
+  const [userName, setUserName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [location, setLocation] = useState('');
+  const [description, setDescription] = useState('');
   const [profileImage, setProfileImage] = useState(null);
-  const [description, setDescription] = useState('Hello! I am John, a passionate buyer and seller on PlugU. I love finding great deals and connecting with fellow community members.');
+  const [bannerImage, setBannerImage] = useState(null);
+
+
+  useEffect(() => {
+      if (!profile) return;
+      
+      setName(profile.full_name ?? '');
+      setUserName(profile.username ?? '');
+      setEmail(profile.email ?? user?.email ?? '');
+      setPhone(profile.phone ?? '');
+      setLocation(profile.location ?? '');
+      setDescription(profile.description ?? '');
+      setProfileImage(profile.avatar_url ?? null);
+      setBannerImage(profile.banner_url ?? null);
+  }, [profile, user]);
+
 
   // Navigation functions
   const onBack = () => {
     router.push("/ProfileScreen")
   };
 
-  const onSave = () => {
-    // Handle save logic here
-    Alert.alert('Success', 'Profile updated successfully!');
-    router.push("/ProfileScreen")
-  };
+const onSave = async () => {
+  try {
+    if (!user) return;
+
+    let avatarUrl = profileImage;
+    let bannerUrl = bannerImage;
+
+    // Upload profile image if it's a local file
+    if (profileImage && profileImage.startsWith("file://")) {
+      avatarUrl = await uploadMediaToSupabase(
+        profileImage,
+        user.id,
+        "avatars", // bucket name
+        "image"
+      );
+    }
+
+    // Upload banner image if it's a local file
+    if (bannerImage && bannerImage.startsWith("file://")) {
+      bannerUrl = await uploadMediaToSupabase(
+        bannerImage,
+        user.id,
+        "banners", // bucket name
+        "image"
+      );
+    }
+
+    const updates = {
+      full_name: name,
+      username: userName,
+      phone,
+      location,
+      description,
+      avatar_url: avatarUrl,
+      banner_url: bannerUrl,
+  
+    };
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(updates)
+      .eq("id", user.id);
+
+    if (error) throw error;
+
+    Alert.alert("Success", "Profile updated successfully");
+    await refreshProfile();
+    router.back();
+  } catch (error) {
+    Alert.alert("Error", error.message);
+  }
+};
+
+
 
   const pickProfileImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -46,7 +120,7 @@ export default function EditProfileScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: "images",
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -66,7 +140,7 @@ export default function EditProfileScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: "images",
       allowsEditing: true,
       aspect: [3, 1],
       quality: 0.8,
@@ -82,7 +156,9 @@ export default function EditProfileScreen() {
   };
 
   return (
-    <ScreenWrapper bg="#F9FAFB">
+    <>  
+      <StatusBar barStyle="dark-content" backgroundColor="white" />
+        <ScreenWrapper bg="#F9FAFB">
       <KeyboardAvoidingView 
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -142,6 +218,20 @@ export default function EditProfileScreen() {
             </View>
 
             {/* Name */}
+            <View style={styles.inputSection}>
+              <Text style={styles.label}>Username</Text>
+              <View style={styles.inputContainer}>
+                <User size={wp(4)} color="#9CA3AF" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  value={userName}
+                  onChangeText={setUserName}
+                  placeholder="Enter your username"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+            </View>
+
             <View style={styles.inputSection}>
               <Text style={styles.label}>Full Name</Text>
               <View style={styles.inputContainer}>
@@ -236,6 +326,8 @@ export default function EditProfileScreen() {
         </View>
       </KeyboardAvoidingView>
     </ScreenWrapper>
+    </>
+
   );
 }
 

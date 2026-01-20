@@ -1,47 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  ScrollView, 
-  StyleSheet, 
-  Animated, 
-  Easing,
-  KeyboardAvoidingView,
-  Platform
-} from 'react-native';
+import {  View,  Text, Alert,  TextInput,  TouchableOpacity,  ScrollView,  StyleSheet,  Animated,  Easing, KeyboardAvoidingView, Platform} from 'react-native';
 import { Mail, Lock, ShoppingBag, Eye, EyeOff } from 'lucide-react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { hp, wp } from '../utilities/dimensions';
 import { router } from 'expo-router';
-import { useContext } from 'react';
-import { AuthContext } from '../context/authContext';
+import { useAuth } from "../context/authContext";
+
+
 
 const LoginScreen = () => {
+  
+  const { login, loading, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+ 
 
   const onSignUpClick = () => {
-    router.replace("/SignUpScreen");
+    router.replace('/SignUpScreen');
   };
-
-  const { login } = useContext(AuthContext);
 
   const handleSubmit = async () => {
-    if (!email || !password) {
-      alert("Please enter your email and password.");
-      return;
-    }
+   if (!email || !password) {
+     Alert.alert('Error', 'Email and password are required');
+     return;
+   }  
 
-    try {
-      await login(email.trim(), password);
-      router.replace("/(tabs)/HomeScreen");
-    } catch (error) {
-      alert(error.message);
-    }
-  };
+   try {
+     await login(email, password);
+     // DO NOT navigate here
+   } catch (error) {
+     Alert.alert('Login failed', error.message);
+   }
+ };
+
+   useEffect(() => {
+  if (user) {
+    router.replace('/(tabs)/HomeScreen');
+  }
+}, [user]);
+
+
 
 
   const waveAnim1 = useState(new Animated.Value(5))[0];
@@ -244,11 +243,17 @@ const LoginScreen = () => {
               </View>
 
               <TouchableOpacity
-                style={styles.submitButton}
+                style={[styles.submitButton, loading && { opacity: 0.6 }]}
                 onPress={handleSubmit}
+                disabled={loading}
+
               >
-                <Text style={styles.submitButtonText}>Sign In</Text>
+              <Text style={styles.submitButtonText}>
+                 {loading ? 'Signing in...' : 'Sign In'}
+              </Text>
               </TouchableOpacity>
+
+
             </View>
 
             <View style={styles.footer}>

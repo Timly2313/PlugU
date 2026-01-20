@@ -6,9 +6,15 @@ import * as ImagePicker from 'expo-image-picker';
 import { hp, wp } from '../utilities/dimensions';
 import { router } from 'expo-router';
 import ScreenWrapper from '../components/ScreenWrapper';
+import { supabase } from "../lib/supabase";
+import { useAuth } from "../context/authContext";
+import { uploadMediaToSupabase } from '../services/imageService';
+
 
 export default function CreateListingScreen({ onSubmit }) {
   const onBack = () => router.back();
+  const { user, profile } = useAuth();
+
 
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
@@ -27,7 +33,7 @@ export default function CreateListingScreen({ onSubmit }) {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: "Images",
       allowsMultipleSelection: true,
       quality: 0.8,
     });
@@ -50,7 +56,7 @@ export default function CreateListingScreen({ onSubmit }) {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes: "Videos",
       allowsMultipleSelection: true,
       quality: 0.8,
     });
@@ -82,26 +88,77 @@ export default function CreateListingScreen({ onSubmit }) {
     setTags((prev) => prev.filter((tag) => tag !== t));
   };
 
-  // SUBMIT LISTING
-  const handleSubmit = () => {
-    const images = uploadedMedia.filter((m) => m.type === 'image').map((m) => m.url);
-    const videos = uploadedMedia.filter((m) => m.type === 'video').map((m) => m.url);
+  const handleSubmit = async () => {
+  if (!user || !profile) {
+    Alert.alert("Error", "You must be logged in");
+    return;
+  }
 
-    const listingData = {
-      id: Date.now().toString(),
-      title,
-      price,
-      category,
-      condition,
-      description,
-      images,
-      videos,
-      tags,
-      timestamp: new Date().toISOString(),
-    };
+  try {
+    // 1️⃣ Upload media & collect public URLs
+    const mediaUrls = [];
 
-    onSubmit?.(listingData);
-  };
+    for (const media of uploadedMedia) {
+      const publicUrl = await uploadMediaToSupabase(
+        media.url,          // local file URI
+        user.id,            // user id
+        "listings",         // bucket
+        media.type          // image | video
+      );
+
+      mediaUrls.push(publicUrl);
+    }
+
+    // 2️⃣ Insert listing
+    const { data: listing, error: listingError } = await supabase
+      .from("listings")
+      .insert({
+        user_id: user.id,
+        title,
+        description,
+        price: price ? Number(price) : null,
+        condition,
+        category,
+        location: profile.location , // 👈 user location
+        status: "active",
+        media_url: mediaUrls,
+      })
+      .select()
+      .single();
+
+    if (listingError) throw listingError;
+
+    // 3️⃣ Handle tags
+    for (const tag of tags) {
+      const { data: tagRow, error: tagError } = await supabase
+        .from("tags")
+        .upsert(
+          { name: tag.toLowerCase() },
+          { onConflict: "name" }
+        )
+        .select()
+        .single();
+
+      if (tagError) throw tagError;
+
+      const { error: linkError } = await supabase
+        .from("listing_tags")
+        .insert({
+          listing_id: listing.id,
+          tag_id: tagRow.id,
+        });
+
+      if (linkError) throw linkError;
+    }
+
+    Alert.alert("Success", "Listing created successfully");
+    router.back();
+
+  } catch (error) {
+    console.error("Create listing error:", error);
+    Alert.alert("Error", error.message);
+  }
+};
 
   const canSubmit =
     title.trim() || description.trim() || uploadedMedia.length > 0 || price.trim();
