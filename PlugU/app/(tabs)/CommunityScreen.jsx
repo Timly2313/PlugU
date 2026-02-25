@@ -1,251 +1,553 @@
-import React, { useState, useEffect  } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert, StyleSheet, FlatList} from 'react-native';
+// import React, { useState, useEffect  } from 'react';
+// import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert, StyleSheet, FlatList} from 'react-native';
+// import { StatusBar } from 'expo-status-bar';
+// import { Heart, MessageCircle, Share2, MoreVertical, Send } from 'lucide-react-native';
+// import { hp, wp } from '../../utilities/dimensions';
+// import ScreenWrapper from '../../components/ScreenWrapper';
+// import { router } from 'expo-router';
+// import { postsApi } from '../utilities/api';
+// import { supabase } from '../lib/supabase';
+// import { RefreshControl } from 'react-native';
+
+
+// export default function CommunityScreen({  newPostData }) {
+//   const [posts, setPosts] = useState([]);
+//   const [isLoading, setIsLoading] = useState(true);
+//   const [isRefreshing, setIsRefreshing] = useState(false);
+//   const [commentText, setCommentText] = useState('');
+//   const [postComments, setPostComments] = useState({});
+//   const [selectedPostForComments, setSelectedPostForComments] = useState(null);
+  
+//   useEffect(() => {
+//     if (newPostData && !posts.find(p => p.id === newPostData.id)) {
+//       setPosts([newPostData, ...posts]);
+//     }
+//     }, [newPostData]);
+
+//     const handleLike = async (postId) => {
+//     try {
+//       await toggleLike(postId, profiles.id);
+
+//       setPosts(prev =>
+//         prev.map(post =>
+//           post.id === postId
+//             ? {
+//                 ...post,
+//                 isLiked: !post.isLiked,
+//                 likes: post.isLiked ? post.likes - 1 : post.likes + 1,
+//               }
+//             : post
+//         )
+//       );
+//     } catch (e) {
+//       console.error(e);
+//     }
+//   };
+
+//   const handleToggleComments = async postId => {
+//     if (selectedPostForComments === postId) {
+//       setSelectedPostForComments(null);
+//       return;
+//     }
+
+//     setSelectedPostForComments(postId);
+
+//     if (!postComments[postId]) {
+//       const comments = await fetchComments(postId);
+//       setPostComments(prev => ({ ...prev, [postId]: comments }));
+//     }
+//   };
+
+//   const handleAddComment = async postId => {
+//     if (!commentText.trim()) return;
+
+//     try {
+//       await addComment(postId, commentText, user.id);
+
+//       const newComment = {
+//         id: Date.now().toString(),
+//         content: commentText,
+//         created_at: new Date().toISOString(),
+//         profiles: {
+//           full_name: user.full_name,
+//           avatar_url: user.avatar_url,
+//         },
+//       };
+
+//       setPostComments(prev => ({
+//         ...prev,
+//         [postId]: [...(prev[postId] || []), newComment],
+//       }));
+
+//       setCommentText('');
+//     } catch (e) {
+//       console.error(e);
+//     }
+//   };
+
+
+
+//   const handleShare = (postId) => {
+//     setPosts(posts.map(post => 
+//       post.id === postId 
+//         ? { ...post, shares: post.shares + 1 }
+//         : post
+//     ));
+//     Alert.alert('Success', 'Post shared successfully!');
+//   };
+
+//   useEffect(() => {
+//   let unsubscribe;
+
+//   const loadPosts = async () => {
+//     try {
+//       const fetchPosts = async () => {
+//         try {
+//           setIsLoading(true);
+        
+//           const posts = await postsApi.getFeed({
+//             type: 'community',
+//             limit: 20,
+//           });
+        
+//           setPosts(posts || []);
+//         } catch (error) {
+//           console.error('Error fetching posts:', error);
+//         } finally {
+//           setIsLoading(false);
+//           setIsRefreshing(false);
+//         }
+//       };
+//     } catch (e) {
+//       console.error(e);
+//     }
+//   };
+
+//   loadPosts();
+
+//   return () => unsubscribe?.();
+// }, []);
+
+//   const renderPost = ({ item: post }) => (
+//     <View style={styles.post}>
+//       {/* Post Header */}
+//       <View style={styles.postHeader}>
+//         <TouchableOpacity 
+//           style={styles.authorInfo}
+//           onPress={() => onViewProfile()}
+//           activeOpacity={0.7}
+//         >
+//            <View style={styles.avatar}>
+//               <Image
+//                 source={{ uri: post.author?.avatar }}
+//                 style={styles.avatar}
+//               />
+//             </View>
+//           <View>
+//             <Text style={styles.authorName}>{post.author.name}</Text>
+//             <Text style={styles.timestamp}>{post.timestamp}</Text>
+//           </View>
+//         </TouchableOpacity>
+//         <TouchableOpacity style={styles.moreButton}>
+//           <MoreVertical size={wp(4)} color="#9CA3AF" />
+//         </TouchableOpacity>
+//       </View>
+
+//       {/* Post Content */}
+//       <View style={styles.postContent}>
+//         <Text style={styles.postText}>{post.content}</Text>
+        
+//         {/* Tags */}
+//         {post.tags && post.tags.length > 0 && (
+//           <View style={styles.tagsContainer}>
+//             {post.tags.map((tag) => (
+//               <View key={tag} style={styles.tag}>
+//                 <Text style={styles.tagText}>#{tag}</Text>
+//               </View>
+//             ))}
+//           </View>
+//         )}
+//       </View>
+
+//       {/* Post Image */}
+//       {post.images && post.images.length > 0 && (
+//         <View style={styles.postImageContainer}>
+//           <Image
+//             source={{ uri: post.images[0] }}
+//             style={styles.postImage}
+//             resizeMode="cover"
+//           />
+//         </View>
+//       )}
+
+
+//       {/* Post Videos */}
+//       {post.videos && post.videos.length > 0 && (
+//         <View style={styles.videosContainer}>
+//           {post.videos.map((video, idx) => (
+//             <View key={idx} style={styles.videoContainer}>
+//               <Text style={styles.videoPlaceholder}>Video Content</Text>
+//             </View>
+//           ))}
+//         </View>
+//       )}
+
+//       {/* Post Stats */}
+//       <View style={styles.postStats}>
+//         <Text style={styles.statText}>{post.likes} likes</Text>
+//         <View style={styles.rightStats}>
+//           <Text style={styles.statText}>{post.comments} comments</Text>
+//           <Text style={styles.statText}>{post.shares} shares</Text>
+//         </View>
+//       </View>
+
+//       {/* Post Actions */}
+//       <View style={styles.postActions}>
+//         <TouchableOpacity
+//           style={styles.actionButton}
+//           onPress={() => handleLike(post.id)}
+//           activeOpacity={0.7}
+//         >
+//           <Heart 
+//             size={wp(5)} 
+//             color={post.isLiked ? '#3F51B5' : '#6B7280'}
+//             fill={post.isLiked ? '#3F51B5' : 'none'}
+//           />
+//           <Text style={[
+//             styles.actionText,
+//             post.isLiked && styles.actionTextActive
+//           ]}>Like</Text>
+//         </TouchableOpacity>
+        
+//         <TouchableOpacity 
+//           style={styles.actionButton}
+//            onPress={() => handleToggleComments(post.id)}
+//           activeOpacity={0.7}
+//         >
+//           <MessageCircle size={wp(5)} color="#6B7280" />
+//           <Text style={styles.actionText}>Comment</Text>
+//         </TouchableOpacity>
+        
+//         <TouchableOpacity 
+//           style={styles.actionButton}
+//           onPress={() => handleShare(post.id)}
+//           activeOpacity={0.7}
+//         >
+//           <Share2 size={wp(5)} color="#6B7280" />
+//           <Text style={styles.actionText}>Share</Text>
+//         </TouchableOpacity>
+//       </View>
+
+//       {/* Comments Section */}
+//       {selectedPostForComments === post.id && (
+//         <View style={styles.commentsSection}>
+//           {/* Existing Comments */}
+//           {postComments[post.id] && postComments[post.id].length > 0 && (
+//             <View style={styles.commentsList}>
+//               {postComments[post.id].map((comment) => (
+//                 <View key={comment.id} style={styles.comment}>
+//                   <View style={styles.commentAvatar}>
+//                     <Text style={styles.commentAvatarText}>{comment.author.avatar}</Text>
+//                   </View>
+//                   <View style={styles.commentContent}>
+//                     <Text style={styles.commentAuthor}>{comment.author.name}</Text>
+//                     <Text style={styles.commentText}>{comment.text}</Text>
+//                     <Text style={styles.commentTime}>{comment.timestamp}</Text>
+//                   </View>
+//                 </View>
+//               ))}
+//             </View>
+//           )}
+          
+//           {/* Add Comment Input */}
+//           <View style={styles.commentInputContainer}>
+//             <TextInput
+//               style={styles.commentInput}
+//               placeholder="Write a comment..."
+//               value={commentText}
+//               onChangeText={setCommentText}
+//               placeholderTextColor="#9CA3AF"
+//               multiline
+//             />
+//             <TouchableOpacity 
+//               style={styles.sendButton}
+//               onPress={() => handleAddComment(post.id)}
+//               disabled={!commentText.trim()}
+//             >
+//               <Send size={wp(4)} color="white" />
+//             </TouchableOpacity>
+//           </View>
+//         </View>
+//       )}
+//     </View>
+//   );
+
+//   return (
+//     <ScreenWrapper bg={"#F9FAFB"}>
+//       <StatusBar style="dark" />
+//        <View style={styles.container}>
+//         {/* Header */}
+//         <View style={styles.header}>
+//           <Text style={styles.headerTitle}>Community</Text>
+
+//           <TouchableOpacity
+//           style={styles.createButton}
+//           onPress={() => router.push("/CreatePostScreen")}
+//         >
+//           <Text style={styles.createButtonText}>Create</Text>
+//         </TouchableOpacity>
+//         </View>
+
+//       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+
+//         {/* Posts Feed */}
+//         <FlatList
+//           data={posts}
+//           renderItem={renderPost}
+//           keyExtractor={(item) => item.id}
+//           scrollEnabled={false}
+//           contentContainerStyle={styles.postsList}
+//         />
+//       </ScrollView>
+//     </View>
+//     </ScreenWrapper>
+     
+//   );
+// }
+
+import React, { useState, useEffect, useCallback, memo } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Heart, MessageCircle, Share2, MoreVertical, Send } from 'lucide-react-native';
+import { Heart, MessageCircle, Send } from 'lucide-react-native';
 import { hp, wp } from '../../utilities/dimensions';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { router } from 'expo-router';
+import { postsApi } from '../../utilities/api';
+import { supabase } from '../../lib/supabase';
 
-const mockPosts = [
-  {
-    id: '1',
-    author: { name: 'Sarah Johnson', avatar: 'SJ' },
-    content: 'Just listed some amazing furniture pieces! Check them out on my profile. Great condition and prices! 🛋️',
-    image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&h=400&fit=crop',
-    likes: 24,
-    comments: 5,
-    shares: 2,
-    timestamp: '2h ago',
-    isLiked: false,
-  },
-  {
-    id: '2',
-    author: { name: 'Mike Chen', avatar: 'MC' },
-    content: 'Looking for vintage bikes in the Bay Area. Any recommendations? 🚲',
-    likes: 12,
-    comments: 8,
-    shares: 1,
-    timestamp: '5h ago',
-    isLiked: true,
-  },
-  {
-    id: '3',
-    author: { name: 'Emma Davis', avatar: 'ED' },
-    content: 'Huge thanks to this community! Sold my laptop within 24 hours. Best marketplace ever! 💻',
-    image: 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=600&h=400&fit=crop',
-    likes: 45,
-    comments: 12,
-    shares: 5,
-    timestamp: '1d ago',
-    isLiked: false,
-  },
-  {
-    id: '4',
-    author: { name: 'Alex Rodriguez', avatar: 'AR' },
-    content: 'Pro tip: Always meet in public places for safety! Stay safe everyone 🙏',
-    likes: 67,
-    comments: 15,
-    shares: 18,
-    timestamp: '2d ago',
-    isLiked: true,
-  },
-];
+const PAGE_LIMIT = 10;
 
-export default function CommunityScreen({  newPostData }) {
-  const [posts, setPosts] = useState(mockPosts);
-  const [commentText, setCommentText] = useState('');
+export default function CommunityScreen() {
+  const [posts, setPosts] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [postComments, setPostComments] = useState({});
-  const [selectedPostForComments, setSelectedPostForComments] = useState(null);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [commentText, setCommentText] = useState('');
 
+  // ===============================
+  // FETCH POSTS (PAGINATED)
+  // ===============================
 
-  const onViewProfile = (avatar) => {
-    router.push({ pathname: "/UserProfileScreen", params: { userAvatar: avatar } });
-  };
-  
-  useEffect(() => {
-    if (newPostData && !posts.find(p => p.id === newPostData.id)) {
-      setPosts([newPostData, ...posts]);
-    }
-    }, [newPostData]);
+  const fetchPosts = async (pageNumber = 1, refresh = false) => {
+    try {
+      if (refresh) setIsRefreshing(true);
+      else if (pageNumber === 1) setIsLoading(true);
+      else setLoadingMore(true);
 
-  const handleLike = (postId) => {
-    setPosts(posts.map(post => 
-      post.id === postId 
-        ? { ...post, likes: post.isLiked ? post.likes - 1 : post.likes + 1, isLiked: !post.isLiked }
-        : post
-    ));
-  };
-
-  const handleAddComment = (postId) => {
-    if (commentText.trim()) {
-      const comment = {
-        id: Date.now().toString(),
-        author: { name: 'John Doe', avatar: 'JD' },
-        text: commentText,
-        timestamp: 'Just now',
-      };
-      
-      setPostComments({
-        ...postComments,
-        [postId]: [...(postComments[postId] || []), comment],
+      const data = await postsApi.getFeed({
+        type: 'community',
+        page: pageNumber,
+        limit: PAGE_LIMIT,
       });
 
-      setPosts(posts.map(post => 
-        post.id === postId 
-          ? { ...post, comments: post.comments + 1 }
-          : post
-      ));
-      
-      setCommentText('');
+      if (refresh || pageNumber === 1) {
+        setPosts(data || []);
+      } else {
+        setPosts((prev) => [...prev, ...(data || [])]);
+      }
+
+      setHasMore(data?.length === PAGE_LIMIT);
+      setPage(pageNumber);
+    } catch (error) {
+      console.error('Fetch posts error:', error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+      setLoadingMore(false);
     }
   };
 
-  const handleShare = (postId) => {
-    setPosts(posts.map(post => 
-      post.id === postId 
-        ? { ...post, shares: post.shares + 1 }
-        : post
-    ));
-    Alert.alert('Success', 'Post shared successfully!');
+  useEffect(() => {
+    fetchPosts(1);
+  }, []);
+
+  // ===============================
+  // REALTIME SUBSCRIPTIONS
+  // ===============================
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('community-feed')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'posts' },
+        (payload) => {
+          setPosts((prev) => [payload.new, ...prev]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'posts' },
+        (payload) => {
+          setPosts((prev) =>
+            prev.map((post) =>
+              post.id === payload.new.id ? payload.new : post
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // ===============================
+  // LIKE (Optimistic + Safe Toggle)
+  // ===============================
+
+  const handleLike = async (postId) => {
+    setPosts((prev) =>
+      prev.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              is_liked: !post.is_liked,
+              likes_count: post.is_liked
+                ? post.likes_count - 1
+                : post.likes_count + 1,
+            }
+          : post
+      )
+    );
+
+    try {
+      await postsApi.like(postId);
+    } catch (error) {
+      console.error('Like failed:', error);
+      fetchPosts(1, true); // rollback
+    }
   };
 
-  const renderPost = ({ item: post }) => (
+  // ===============================
+  // COMMENTS
+  // ===============================
+
+  const loadComments = async (postId) => {
+    try {
+      const comments = await postsApi.getComments(postId);
+      setPostComments((prev) => ({ ...prev, [postId]: comments }));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleAddComment = async (postId) => {
+    if (!commentText.trim()) return;
+
+    const optimisticComment = {
+      id: Date.now().toString(),
+      content: commentText,
+      created_at: new Date().toISOString(),
+    };
+
+    setPostComments((prev) => ({
+      ...prev,
+      [postId]: [...(prev[postId] || []), optimisticComment],
+    }));
+
+    setCommentText('');
+
+    try {
+      await postsApi.comment(postId, optimisticComment.content);
+    } catch (error) {
+      console.error(error);
+      loadComments(postId);
+    }
+  };
+
+  // ===============================
+  // RENDER POST (MEMOIZED)
+  // ===============================
+
+  const PostItem = memo(({ post }) => (
     <View style={styles.post}>
-      {/* Post Header */}
       <View style={styles.postHeader}>
-        <TouchableOpacity 
-          style={styles.authorInfo}
-          onPress={() => onViewProfile(post.author.avatar)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{post.author.avatar}</Text>
-          </View>
-          <View>
-            <Text style={styles.authorName}>{post.author.name}</Text>
-            <Text style={styles.timestamp}>{post.timestamp}</Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.moreButton}>
-          <MoreVertical size={wp(4)} color="#9CA3AF" />
-        </TouchableOpacity>
+        <Image
+          source={{ uri: post.profiles?.avatar_url }}
+          style={styles.avatar}
+        />
+        <View>
+          <Text style={styles.authorName}>
+            {post.profiles?.display_name ||
+              post.profiles?.username ||
+              'User'}
+          </Text>
+          <Text style={styles.timestamp}>
+            {new Date(post.created_at).toLocaleString()}
+          </Text>
+        </View>
       </View>
 
-      {/* Post Content */}
-      <View style={styles.postContent}>
-        <Text style={styles.postText}>{post.content}</Text>
-        
-        {/* Tags */}
-        {post.tags && post.tags.length > 0 && (
-          <View style={styles.tagsContainer}>
-            {post.tags.map((tag) => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>#{tag}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
+      <Text style={styles.postText}>{post.content}</Text>
 
-      {/* Post Image */}
-      {post.image && (
-        <View style={styles.postImageContainer}>
-          <Image source={{ uri: post.image }} style={styles.postImage} resizeMode="cover" />
-        </View>
-      )}
-
-      {/* Post Videos */}
-      {post.videos && post.videos.length > 0 && (
-        <View style={styles.videosContainer}>
-          {post.videos.map((video, idx) => (
-            <View key={idx} style={styles.videoContainer}>
-              <Text style={styles.videoPlaceholder}>Video Content</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Post Stats */}
       <View style={styles.postStats}>
-        <Text style={styles.statText}>{post.likes} likes</Text>
-        <View style={styles.rightStats}>
-          <Text style={styles.statText}>{post.comments} comments</Text>
-          <Text style={styles.statText}>{post.shares} shares</Text>
-        </View>
+        <Text>{post.likes_count || 0} likes</Text>
+        <Text>{post.comments_count || 0} comments</Text>
       </View>
 
-      {/* Post Actions */}
-      <View style={styles.postActions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleLike(post.id)}
-          activeOpacity={0.7}
-        >
-          <Heart 
-            size={wp(5)} 
-            color={post.isLiked ? '#3F51B5' : '#6B7280'}
-            fill={post.isLiked ? '#3F51B5' : 'none'}
+      <View style={styles.actions}>
+        <TouchableOpacity onPress={() => handleLike(post.id)}>
+          <Heart
+            size={wp(5)}
+            color={post.is_liked ? '#3F51B5' : '#6B7280'}
+            fill={post.is_liked ? '#3F51B5' : 'none'}
           />
-          <Text style={[
-            styles.actionText,
-            post.isLiked && styles.actionTextActive
-          ]}>Like</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => setSelectedPostForComments(selectedPostForComments === post.id ? null : post.id)}
-          activeOpacity={0.7}
+
+        <TouchableOpacity
+          onPress={() => {
+            setSelectedPost(post.id);
+            loadComments(post.id);
+          }}
         >
           <MessageCircle size={wp(5)} color="#6B7280" />
-          <Text style={styles.actionText}>Comment</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => handleShare(post.id)}
-          activeOpacity={0.7}
-        >
-          <Share2 size={wp(5)} color="#6B7280" />
-          <Text style={styles.actionText}>Share</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Comments Section */}
-      {selectedPostForComments === post.id && (
+      {selectedPost === post.id && (
         <View style={styles.commentsSection}>
-          {/* Existing Comments */}
-          {postComments[post.id] && postComments[post.id].length > 0 && (
-            <View style={styles.commentsList}>
-              {postComments[post.id].map((comment) => (
-                <View key={comment.id} style={styles.comment}>
-                  <View style={styles.commentAvatar}>
-                    <Text style={styles.commentAvatarText}>{comment.author.avatar}</Text>
-                  </View>
-                  <View style={styles.commentContent}>
-                    <Text style={styles.commentAuthor}>{comment.author.name}</Text>
-                    <Text style={styles.commentText}>{comment.text}</Text>
-                    <Text style={styles.commentTime}>{comment.timestamp}</Text>
-                  </View>
-                </View>
-              ))}
+          {postComments[post.id]?.map((comment) => (
+            <View key={comment.id} style={styles.comment}>
+              <Text>{comment.content}</Text>
             </View>
-          )}
-          
-          {/* Add Comment Input */}
-          <View style={styles.commentInputContainer}>
+          ))}
+
+          <View style={styles.commentInputRow}>
             <TextInput
               style={styles.commentInput}
-              placeholder="Write a comment..."
               value={commentText}
               onChangeText={setCommentText}
-              placeholderTextColor="#9CA3AF"
-              multiline
+              placeholder="Write a comment..."
             />
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.sendButton}
               onPress={() => handleAddComment(post.id)}
-              disabled={!commentText.trim()}
             >
               <Send size={wp(4)} color="white" />
             </TouchableOpacity>
@@ -253,38 +555,52 @@ export default function CommunityScreen({  newPostData }) {
         </View>
       )}
     </View>
-  );
+  ));
+
+  // ===============================
+  // RENDER
+  // ===============================
 
   return (
-    <ScreenWrapper bg={"#F9FAFB"}>
+    <ScreenWrapper bg="#F9FAFB">
       <StatusBar style="dark" />
-       <View style={styles.container}>
-        {/* Header */}
+      <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Community</Text>
-
           <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => router.push("/CreatePostScreen")}
-        >
-          <Text style={styles.createButtonText}>Create</Text>
-        </TouchableOpacity>
+            style={styles.createButton}
+            onPress={() => router.push('/CreatePostScreen')}
+          >
+            <Text style={styles.createButtonText}>Create</Text>
+          </TouchableOpacity>
         </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-
-        {/* Posts Feed */}
-        <FlatList
-          data={posts}
-          renderItem={renderPost}
-          keyExtractor={(item) => item.id}
-          scrollEnabled={false}
-          contentContainerStyle={styles.postsList}
-        />
-      </ScrollView>
-    </View>
+        {isLoading ? (
+          <ActivityIndicator size="large" />
+        ) : (
+          <FlatList
+            data={posts}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => <PostItem post={item} />}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={() => fetchPosts(1, true)}
+              />
+            }
+            onEndReached={() => {
+              if (hasMore && !loadingMore) {
+                fetchPosts(page + 1);
+              }
+            }}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              loadingMore ? <ActivityIndicator /> : null
+            }
+          />
+        )}
+      </View>
     </ScreenWrapper>
-     
   );
 }
 

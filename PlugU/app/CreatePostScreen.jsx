@@ -10,6 +10,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator
 } from 'react-native';
 import { ArrowLeft, ImageIcon, Video, X, Plus } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -17,9 +18,15 @@ import { hp, wp } from '../utilities/dimensions';
 import { router } from 'expo-router';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { StatusBar } from 'expo-status-bar';
+import { useAuth } from "../context/authContext";
+import { createPost } from "../services/postsService";
+
 
 export default function CreatePostScreen({ onSubmit }) {
   const onBack = () => router.back();
+
+  const { user, profile } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
 
   const [postContent, setPostContent] = useState('');
   const [uploadedMedia, setUploadedMedia] = useState([]);
@@ -34,7 +41,7 @@ export default function CreatePostScreen({ onSubmit }) {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: "Images",
       allowsMultipleSelection: true,
       quality: 0.8,
     });
@@ -58,7 +65,7 @@ export default function CreatePostScreen({ onSubmit }) {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes: "Videos",
       allowsMultipleSelection: true,
       quality: 0.8,
     });
@@ -85,26 +92,40 @@ export default function CreatePostScreen({ onSubmit }) {
 
   const removeTag = (tagToRemove) => setTags((prev) => prev.filter((tag) => tag !== tagToRemove));
 
-  const handleSubmit = () => {
-    const images = uploadedMedia.filter((m) => m.type === 'image').map((m) => m.url);
-    const videos = uploadedMedia.filter((m) => m.type === 'video').map((m) => m.url);
+  const handleSubmit = async () => {
+    if (!user || !profile) {
+      Alert.alert("Error", "You must be logged in");
+      return;
+    }
 
-    const postData = {
-      id: Date.now().toString(),
-      author: { name: 'John Doe', avatar: 'JD' },
-      content: postContent,
-      images: images.length > 0 ? images : undefined,
-      videos: videos.length > 0 ? videos : undefined,
-      tags: tags.length > 0 ? tags : undefined,
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      timestamp: 'Just now',
-      isLiked: false,
-    };
+    if (!postContent.trim() && uploadedMedia.length === 0) {
+      Alert.alert("Empty post", "Add text or media before posting");
+      return;
+    }
 
-    onSubmit?.(postData);
+    try {
+      setSubmitting(true);
+
+      await createPost({
+        userId: user.id,
+        content: postContent.trim(),
+        media: uploadedMedia.map((m) => ({
+          uri: m.url,
+          type: m.type,
+        })),
+        tags,
+      });
+
+      Alert.alert("Success", "Post created successfully");
+      router.back();
+    } catch (error) {
+      console.error("Create post error:", error);
+      Alert.alert("Error", error.message || "Failed to create post");
+    } finally {
+      setSubmitting(false);
+    }
   };
+
 
   const canSubmit = postContent.trim() || uploadedMedia.length > 0;
 
@@ -236,13 +257,21 @@ export default function CreatePostScreen({ onSubmit }) {
 
         {/* Fixed Post Button */}
         <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.postButton, !canSubmit && styles.postButtonDisabled]}
-            disabled={!canSubmit}
-            onPress={handleSubmit}
-          >
+        <TouchableOpacity
+          style={[
+            styles.postButton,
+            (!canSubmit || submitting) && styles.postButtonDisabled,
+          ]}
+          disabled={!canSubmit || submitting}
+          onPress={handleSubmit}
+        >
+          {submitting ? (
+            <ActivityIndicator color="white" />
+          ) : (
             <Text style={styles.postButtonText}>Post</Text>
-          </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+
         </View>
       </View>
     </ScreenWrapper>

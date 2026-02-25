@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,10 @@ import {
   Image,
   TextInput,
   FlatList,
-  StyleSheet
+  StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
-import { 
+import {
   ArrowLeft,
   MapPin,
   Bookmark,
@@ -18,124 +19,79 @@ import {
   Send,
   ChevronLeft,
   ChevronRight,
-  Star
+  Star,
 } from 'lucide-react-native';
 import { hp, wp } from '../utilities/dimensions';
 import ScreenWrapper from '../components/ScreenWrapper';
-import ListingCard from '../components/ListingCard';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { fetchListingById } from '../services/listingsService';
 
-// Mock listing data
-const listingData = {
-  id: '1',
-  title: 'Modern Sofa Set',
-  price: 450,
-  location: 'San Francisco, CA',
-  images: [
-    'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&h=600&fit=crop',
-    'https://images.unsplash.com/photo-1540574163026-643ea20ade25?w=800&h=600&fit=crop',
-    'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=800&h=600&fit=crop',
-  ],
-  category: 'Furniture',
-  description: 'Beautiful modern sofa set in excellent condition. Includes a 3-seater sofa and matching loveseat. Gray fabric upholstery, very comfortable and clean. Perfect for contemporary living spaces. Selling because we\'re moving to a smaller apartment.',
-  seller: {
-    name: 'John Doe',
-    avatar: 'JD',
-    rating: '4.8',
-    listings: '12',
-  },
-  postedDate: '2 days ago',
-};
-
-const relatedListings = [
-  {
-    id: '11',
-    title: 'Leather Sofa',
-    price: 520,
-    location: 'Oakland, CA',
-    image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop',
-    category: 'Furniture',
-  },
-  {
-    id: '12',
-    title: 'Sectional Couch',
-    price: 680,
-    location: 'Berkeley, CA',
-    image: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=400&h=300&fit=crop',
-    category: 'Furniture',
-  },
-  {
-    id: '13',
-    title: 'Velvet Sofa',
-    price: 595,
-    location: 'San Jose, CA',
-    image: 'https://images.unsplash.com/photo-1540574163026-643ea20ade25?w=400&h=300&fit=crop',
-    category: 'Furniture',
-  },
-];
-
-export default function ListingDetailScreen({ listingId, onMessage, onViewListing }) {
-  const [message, setMessage] = useState('');
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+export default function ListingDetailScreen() {
+  const { listingId } = useLocalSearchParams();
   const router = useRouter();
 
-  const onBack = () => {
-    router.back();
+  const [listing, setListing] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const loadListing = async () => {
+      try {
+        const data = await fetchListingById(listingId);
+        setListing(data);
+      } catch (err) {
+        console.error('Failed to load listing', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (listingId) loadListing();
+  }, [listingId]);
+
+  if (loading) {
+    return (
+      <ScreenWrapper bg="#F9FAFB">
+        <ActivityIndicator style={{ marginTop: hp(30) }} size="large" />
+      </ScreenWrapper>
+    );
   }
 
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      // Handle send message
-      onMessage?.();
-      setMessage('');
-    }
-  };
+  if (!listing) return null;
+
+  const images = listing.images ?? [];
 
   const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % listingData.images.length);
+    setCurrentImageIndex(i => (i + 1) % images.length);
   };
 
   const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + listingData.images.length) % listingData.images.length);
-  };
-
-  const handleViewListing = (listingId) => {
-    router.push({
-      pathname: "/ListingDetailsScreen",
-      params: { listingId }
-    });
+    setCurrentImageIndex(i => (i - 1 + images.length) % images.length);
   };
 
   const renderImageIndicator = () => (
     <View style={styles.imageIndicators}>
-      {listingData.images.map((_, index) => (
+      {images.map((_, index) => (
         <View
           key={index}
           style={[
             styles.imageIndicator,
-            index === currentImageIndex && styles.activeImageIndicator
+            index === currentImageIndex && styles.activeImageIndicator,
           ]}
         />
       ))}
     </View>
   );
 
-  const renderRelatedListing = ({ item }) => (
-    <View style={styles.relatedListingItem}>
-      <ListingCard
-        listing={item}
-        onViewListing={handleViewListing}
-      />
-    </View>
-  );
-
   return (
     <ScreenWrapper bg="#F9FAFB">
       <StatusBar style="dark" />
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <ArrowLeft size={wp(5)} color="#374151" />
         </TouchableOpacity>
         <View style={styles.headerActions}>
@@ -148,17 +104,17 @@ export default function ListingDetailScreen({ listingId, onMessage, onViewListin
         </View>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false}>
         {/* Image Gallery */}
         <View style={styles.imageGallery}>
-          <Image 
-            source={{ uri: listingData.images[currentImageIndex] }}
-            style={styles.mainImage}
-            resizeMode="cover"
-          />
-          
-          {/* Image Navigation */}
-          {listingData.images.length > 1 && (
+          {images.length > 0 && (
+            <Image
+              source={{ uri: images[currentImageIndex] }}
+              style={styles.mainImage}
+            />
+          )}
+
+          {images.length > 1 && (
             <>
               <TouchableOpacity style={styles.navButtonLeft} onPress={prevImage}>
                 <ChevronLeft size={wp(5)} color="#374151" />
@@ -171,26 +127,27 @@ export default function ListingDetailScreen({ listingId, onMessage, onViewListin
           )}
         </View>
 
-        {/* Content */}
         <View style={styles.content}>
-          {/* Price & Title */}
+          {/* Title */}
           <View style={styles.titleSection}>
-            <Text style={styles.title}>{listingData.title}</Text>
-            <Text style={styles.price}>${listingData.price}</Text>
+            <Text style={styles.title}>{listing.title}</Text>
+            <Text style={styles.price}>${listing.price}</Text>
+
             <View style={styles.locationRow}>
               <MapPin size={wp(3.5)} color="#6B7280" />
-              <Text style={styles.location}>{listingData.location}</Text>
+              <Text style={styles.location}>{listing.location}</Text>
               <Text style={styles.separator}>•</Text>
-              <Text style={styles.postedDate}>{listingData.postedDate}</Text>
+              <Text style={styles.postedDate}>{listing.postedDate}</Text>
             </View>
           </View>
 
-          {/* Send Seller a Message */}
+          {/* Message */}
           <View style={styles.messageCard}>
             <View style={styles.messageHeader}>
               <MessageCircle size={wp(5)} color="#3F51B5" />
               <Text style={styles.messageTitle}>Send seller a message</Text>
             </View>
+
             <View style={styles.messageInputRow}>
               <TextInput
                 style={styles.messageInput}
@@ -199,10 +156,7 @@ export default function ListingDetailScreen({ listingId, onMessage, onViewListin
                 onChangeText={setMessage}
                 placeholderTextColor="#9CA3AF"
               />
-              <TouchableOpacity 
-                style={styles.sendButton}
-                onPress={handleSendMessage}
-              >
+              <TouchableOpacity style={styles.sendButton}>
                 <Send size={wp(4)} color="white" />
               </TouchableOpacity>
             </View>
@@ -211,47 +165,54 @@ export default function ListingDetailScreen({ listingId, onMessage, onViewListin
           {/* Description */}
           <View style={styles.descriptionCard}>
             <Text style={styles.sectionTitle}>Description</Text>
-            <Text style={styles.descriptionText}>
-              {listingData.description}
-            </Text>
+            <Text style={styles.descriptionText}>{listing.description}</Text>
           </View>
 
-          {/* Seller Info */}
-          <View style={styles.sellerCard}>
+          {/* Seller */}
+          <TouchableOpacity
+           style={styles.sellerCard}
+           activeOpacity={0.85}
+           onPress={() =>
+             router.push({
+             pathname: "/UserProfileScreen",
+             params: { userId: listing.seller?.id },
+            })
+           }>
+
             <Text style={styles.sectionTitle}>Seller Information</Text>
+
             <View style={styles.sellerInfo}>
               <View style={styles.sellerAvatar}>
-                <Text style={styles.sellerAvatarText}>{listingData.seller.avatar}</Text>
+                <Image
+                    source={{ uri: listing.seller?.avatar }}
+                    style={styles.avatar}
+                />
               </View>
+
               <View style={styles.sellerDetails}>
-                <Text style={styles.sellerName}>{listingData.seller.name}</Text>
+                <Text style={styles.sellerName}>
+                  {listing.seller?.name ?? 'Unknown'}
+                </Text>
+
                 <View style={styles.sellerStats}>
                   <Star size={wp(3.5)} color="#3F51B5" fill="#3F51B5" />
-                  <Text style={styles.sellerRating}>{listingData.seller.rating}</Text>
-                  <Text style={styles.separator}>•</Text>
-                  <Text style={styles.sellerListings}>{listingData.seller.listings} listings</Text>
+                  <Text style={styles.sellerRating}>
+                    {listing.seller?.rating ?? '5.0'}
+                  </Text>
                 </View>
               </View>
             </View>
-          </View>
-
-          {/* Related Listings */}
-          <View style={styles.relatedSection}>
-            <Text style={styles.sectionTitle}>Related Listings</Text>
-            <FlatList
-              data={relatedListings}
-              renderItem={renderRelatedListing}
-              keyExtractor={(item) => item.id}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.relatedListings}
-            />
-          </View>
+  
+          </TouchableOpacity>
+         
+            
+         
         </View>
       </ScrollView>
     </ScreenWrapper>
   );
 }
+
 
 const styles = StyleSheet.create({
   header: {
@@ -349,7 +310,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: wp(4),
-    gap: hp(3),
+    gap: hp(2),
   },
   titleSection: {
     gap: hp(1),
@@ -385,17 +346,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: wp(4),
     padding: wp(4),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+    
   },
   messageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: wp(2),
-    marginBottom: hp(2),
   },
   messageTitle: {
     fontSize: wp(4),
@@ -429,21 +387,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: wp(4),
     padding: wp(4),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
   },
   sellerCard: {
     backgroundColor: 'white',
     borderRadius: wp(4),
     padding: wp(4),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
   },
   sectionTitle: {
     fontSize: wp(4),

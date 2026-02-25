@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -12,11 +12,14 @@ import {
 } from 'react-native';
 import { LogOut, TrendingUp, DollarSign, Eye, Package, Settings, Edit, Heart, MoreVertical, Trash2, Pencil } from 'lucide-react-native';
 import { hp, wp } from '../../utilities/dimensions';
-import ListingCard from '../../components/ListingCard';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { useAuth } from "../../context/authContext";
 import { router } from 'expo-router';
 import {StatusBar} from 'expo-status-bar';
+import { fetchListings } from "../../services/listingsService";
+import { supabase } from "../../lib/supabase";
+
+
 
 const userStats = [
   { label: 'Active Listings', value: '8', icon: Package },
@@ -25,71 +28,23 @@ const userStats = [
   { label: 'Rating', value: '4.8', icon: TrendingUp },
 ];
 
-// Initial listings data
-const initialUserListings = [
-  {
-    id: '1',
-    title: 'Modern Sofa Set',
-    price: 450,
-    location: 'San Francisco, CA',
-    image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=300&fit=crop',
-    category: 'Furniture',
-    status: 'Active',
-  },
-  {
-    id: '2',
-    title: 'iPhone 14 Pro',
-    price: 899,
-    location: 'Oakland, CA',
-    image: 'https://images.unsplash.com/photo-1592286927505-c1f03fdedc1b?w=400&h=300&fit=crop',
-    category: 'Electronics',
-    status: 'Active',
-  },
-  {
-    id: '3',
-    title: 'Vintage Bicycle',
-    price: 250,
-    location: 'Berkeley, CA',
-    image: 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=400&h=300&fit=crop',
-    category: 'Sports',
-    status: 'Sold',
-  },
-  {
-    id: '4',
-    title: 'Gaming Laptop',
-    price: 1200,
-    location: 'San Jose, CA',
-    image: 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=400&h=300&fit=crop',
-    category: 'Electronics',
-    status: 'Active',
-  },
-  {
-    id: '5',
-    title: 'Designer Handbag',
-    price: 320,
-    location: 'San Francisco, CA',
-    image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400&h=300&fit=crop',
-    category: 'Fashion',
-    status: 'Pending',
-  },
-  {
-    id: '6',
-    title: 'Wooden Dining Table',
-    price: 380,
-    location: 'Palo Alto, CA',
-    image: 'https://images.unsplash.com/photo-1617806118233-18e1de247200?w=400&h=300&fit=crop',
-    category: 'Furniture',
-    status: 'Active',
-  },
-];
+const EmptyListingsState = () => (
+  <View style={styles.emptyStateContainer}>
+    <Package size={wp(14)} color="#9CA3AF" />
+    <Text style={styles.emptyStateTitle}>No listings yet</Text>
+    <Text style={styles.emptyStateSubtitle}>
+      You haven’t created any listings yet.
+    </Text>
+  </View>
+);
 
 export default function ProfileScreen() {
   const { profile, logout } = useAuth();
-  const [userListings, setUserListings] = useState(initialUserListings);
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
-
+  const [userListings, setUserListings] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const onSettings = () => {
     router.push("/SettingsScreen");
@@ -117,6 +72,36 @@ export default function ProfileScreen() {
     router.replace("/LoginScreen");
   };
 
+  useEffect(() => {
+    if (!profile?.id) return;
+    
+    const loadListings = async () => {
+      try {
+        const data = await fetchListings({
+          mode: "myListings",
+          userId: profile.id,
+        });
+      
+        setUserListings(
+          data.map((item) => ({
+            id: item.id,
+            title: item.title,
+            price: item.price,
+            location: item.location,
+            image: item.media_url?.[0],
+            category: item.category,
+            status: item.status,
+          }))
+        );
+      } catch (err) {
+        console.error("Failed to load listings:", err);
+      } finally {
+        setLoading(false);
+      }
+   };
+
+  loadListings();
+}, [profile?.id]);
   
   // Handle dots click (show action menu)
   const handleDotsClick = (listing) => {
@@ -131,30 +116,48 @@ export default function ProfileScreen() {
    router.push({ pathname: "/CreateListingScreen", params: { listingId: selectedListing?.id } });
   };
 
-  // Handle delete listing
+
+ // Handle delete listing 
   const handleDeleteListing = () => {
     setActionModalVisible(false);
+
     Alert.alert(
-      'Delete Listing',
+      "Delete Listing",
       `Are you sure you want to delete "${selectedListing?.title}"?`,
       [
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            setUserListings(prevListings => 
-              prevListings.filter(listing => listing.id !== selectedListing.id)
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const listing = selectedListing;
+
+            setUserListings((prev) =>
+              prev.filter((l) => l.id !== listing.id)
             );
-            Alert.alert('Deleted', 'Listing has been deleted successfully');
+
+            try {
+              const { error } = await supabase
+                .from("listings")
+                .delete()
+                .eq("id", listing.id);
+
+              if (error) throw error;
+
+            } catch (err) {
+              console.error(err);
+
+              setUserListings((prev) => [...prev, listing]);
+
+              Alert.alert("Error", "Failed to delete listing");
+            }
           },
         },
       ]
     );
   };
+
+
 
   // Handle status change
   const handleStatusChange = () => {
@@ -338,6 +341,9 @@ export default function ProfileScreen() {
             <View style={styles.listingsHeader}>
               <Text style={styles.listingsTitle}>My Listings</Text>
             </View>
+         {!loading && userListings.length === 0 ? (
+            <EmptyListingsState />
+          ) : (
             <FlatList
               data={userListings}
               renderItem={renderListingItem}
@@ -346,6 +352,8 @@ export default function ProfileScreen() {
               scrollEnabled={false}
               contentContainerStyle={styles.listingsGrid}
             />
+          )}
+
           </View>
         </ScrollView>
 
@@ -830,4 +838,25 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontWeight: '500',
   },
+  emptyStateContainer: {
+  alignItems: "center",
+  justifyContent: "center",
+  paddingVertical: hp(6),
+},
+
+emptyStateTitle: {
+  marginTop: hp(2),
+  fontSize: wp(4.5),
+  fontWeight: "600",
+  color: "#6B7280",
+},
+
+emptyStateSubtitle: {
+  marginTop: hp(1),
+  fontSize: wp(3.5),
+  color: "#9CA3AF",
+  textAlign: "center",
+  paddingHorizontal: wp(10),
+},
+
 });

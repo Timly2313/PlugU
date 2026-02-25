@@ -1,0 +1,56 @@
+{
+  "name": "plugu-backend",
+  "version": "1.0.0",
+  "description": "PlugU Social Content Platform - Production-ready Supabase Backend",
+  "main": "index.js",
+  "scripts": {
+    "start": "supabase start",
+    "stop": "supabase stop",
+    "status": "supabase status",
+    "db:reset": "supabase db reset",
+    "db:push": "supabase db push",
+    "db:pull": "supabase db pull",
+    "db:diff": "supabase db diff",
+    "db:lint": "supabase db lint",
+    "migration:new": "supabase migration new",
+    "migration:up": "supabase migration up",
+    "migration:repair": "supabase migration repair",
+    "functions:serve": "supabase functions serve",
+    "functions:deploy": "supabase functions deploy",
+    "functions:deploy:all": "npm run functions:deploy:createPost && npm run functions:deploy:getFeed && npm run functions:deploy:likePost && npm run functions:deploy:commentPost && npm run functions:deploy:createListing && npm run functions:deploy:getUserListings && npm run functions:deploy:moderateContent && npm run functions:deploy:sendMessage && npm run functions:deploy:fetchNotifications",
+    "functions:deploy:createPost": "supabase functions deploy createPost",
+    "functions:deploy:getFeed": "supabase functions deploy getFeed",
+    "functions:deploy:likePost": "supabase functions deploy likePost",
+    "functions:deploy:commentPost": "supabase functions deploy commentPost",
+    "functions:deploy:createListing": "supabase functions deploy createListing",
+    "functions:deploy:getUserListings": "supabase functions deploy getUserListings",
+    "functions:deploy:moderateContent": "supabase functions deploy moderateContent",
+    "functions:deploy:sendMessage": "supabase functions deploy sendMessage",
+    "functions:deploy:fetchNotifications": "supabase functions deploy fetchNotifications",
+    "types:generate": "supabase gen types typescript --local > types/supabase.ts",
+    "types:generate:linked": "supabase gen types typescript --linked > types/supabase.ts",
+    "seed": "supabase seed run",
+    "test": "deno test --allow-all",
+    "lint": "deno lint",
+    "fmt": "deno fmt",
+    "link": "supabase link",
+    "login": "supabase login",
+    "logout": "supabase logout"
+  },
+  "keywords": [
+    "supabase",
+    "backend",
+    "social",
+    "marketplace",
+    "typescript",
+    "edge-functions"
+  ],
+  "author": "PlugU Team",
+  "license": "MIT",
+  "devDependencies": {
+    "supabase": "^1.142.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

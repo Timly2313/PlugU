@@ -1,5 +1,4 @@
-// MarketScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,84 +8,71 @@ import {
   Image,
   FlatList,
   StyleSheet,
-  StatusBar
-} from 'react-native';
-import { Search, SlidersHorizontal, ArrowRight } from 'lucide-react-native';
+  StatusBar,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
+import { Search, SlidersHorizontal, ArrowRight, Package } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import ScreenWrapper from '../../components/ScreenWrapper';
-import { hp, wp } from '../../utilities/dimensions';
-import ListingCard from '../../components/ListingCard'
+import ScreenWrapper from "../../components/ScreenWrapper";
+import { hp, wp } from "../../utilities/dimensions";
+import ListingCard from "../../components/ListingCard";
 import { useAuth } from "../../context/authContext";
 
-
-const mockListings = [
-  {
-    id: '1',
-    title: 'Modern Sofa Set',
-    price: 7500,
-    location: 'Johannesburg, GP',
-    image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=300&fit=crop',
-    category: 'Furniture',
-  },
-  {
-    id: '2',
-    title: 'iPhone 14 Pro',
-    price: 15999,
-    location: 'Cape Town, WC',
-    image: 'https://images.unsplash.com/photo-1592286927505-c1f03fdedc1b?w=400&h=300&fit=crop',
-    category: 'Electronics',
-  },
-  {
-    id: '3',
-    title: 'Vintage Bicycle',
-    price: 3200,
-    location: 'Pretoria, GP',
-    image: 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=400&h=300&fit=crop',
-    category: 'Sports',
-  },
-  {
-    id: '4',
-    title: 'Gaming Laptop',
-    price: 18500,
-    location: 'Durban, KZN',
-    image: 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=400&h=300&fit=crop',
-    category: 'Electronics',
-  },
-  {
-    id: '5',
-    title: 'Designer Handbag',
-    price: 5800,
-    location: 'Sandton, GP',
-    image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400&h=300&fit=crop',
-    category: 'Fashion',
-  },
-  {
-    id: '6',
-    title: 'Wooden Dining Table',
-    price: 6200,
-    location: 'Port Elizabeth, EC',
-    image: 'https://images.unsplash.com/photo-1617806118233-18e1de247200?w=400&h=300&fit=crop',
-    category: 'Furniture',
-  },
-];
-
 export default function MarketScreen() {
- 
   const { profile } = useAuth();
+  const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [likedListings, setLikedListings] = useState(new Set());
-  const router = useRouter();
+  const [listings, setListings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    category: null,
+    minPrice: null,
+    maxPrice: null,
+    radiusKm: null, // Radius filter
+  });
+
+  const fetchListings = async () => {
+    setLoading(true);
+    try {
+      const queryParams = new URLSearchParams();
+      if (profile?.id) queryParams.append("userId", profile.id);
+      if (filters.category) queryParams.append("category", filters.category);
+      if (filters.minPrice) queryParams.append("minPrice", filters.minPrice);
+      if (filters.maxPrice) queryParams.append("maxPrice", filters.maxPrice);
+      if (filters.radiusKm) queryParams.append("radiusKm", filters.radiusKm);
+      if (searchQuery) queryParams.append("search", searchQuery);
+
+      const response = await fetch(
+        `https://your-edge-function-url/getUserListings?${queryParams.toString()}`
+      );
+      const data = await response.json();
+
+      if (response.ok) {
+        setListings(data.listings || []);
+      } else {
+        Alert.alert("Error", data.message || "Failed to load listings");
+      }
+    } catch (err) {
+      console.error("Failed to load marketplace listings:", err);
+      Alert.alert("Error", "Failed to load listings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchListings();
+  }, [searchQuery, filters]);
 
   const toggleLike = (listingId) => {
     setLikedListings((prev) => {
       const newLikes = new Set(prev);
-      if (newLikes.has(listingId)) {
-        newLikes.delete(listingId);
-      } else {
-        newLikes.add(listingId);
-      }
+      if (newLikes.has(listingId)) newLikes.delete(listingId);
+      else newLikes.add(listingId);
       return newLikes;
     });
   };
@@ -94,7 +80,7 @@ export default function MarketScreen() {
   const handleViewListing = (listingId) => {
     router.push({
       pathname: "/ListingDetailsScreen",
-      params: { listingId }
+      params: { listingId },
     });
   };
 
@@ -106,106 +92,95 @@ export default function MarketScreen() {
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           stickyHeaderIndices={[1]}
-      >
-        {/* Hero Section */}
-        <View style={styles.heroSection}>
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.greeting}>Hi {profile?.username || "User"}</Text>
-              <Text style={styles.subtitle}>
-                Let's get you what you're looking for.
-              </Text>
-            </View>
-            <View style={styles.avatarContainer}>
-              <Image
-                source={{ uri: profile?.avatar_url }}
-                style={styles.avatar}
-              />
+        >
+          {/* Hero Section */}
+          <View style={styles.heroSection}>
+            <View style={styles.header}>
+              <View>
+                <Text style={styles.greeting}>
+                  Hi {profile?.username || "User"}
+                </Text>
+                <Text style={styles.subtitle}>
+                  Find listings that match your preferences
+                </Text>
+              </View>
+              <View style={styles.avatarContainer}>
+                <Image
+                  source={{ uri: profile?.avatar_url }}
+                  style={styles.avatar}
+                />
+              </View>
             </View>
           </View>
 
-          {/* Deal Card */}
-          <View style={styles.dealCard}>
-            <View style={styles.dealContent}>
-              <View style={styles.dealTextContainer}>
-                <Text style={styles.dealSubtitle}>Today's Deal</Text>
-                <Text style={styles.dealTitle}>50% OFF</Text>
-                <Text style={styles.dealDescription} numberOfLines={3}>
-                  Et provident eos est dolore. Illum libero adipisci molestias
-                  aut et quisquam aspernatur.
-                </Text>
-                <TouchableOpacity style={styles.dealButton}>
-                  <Text style={styles.dealButtonText}>BUY IT NOW</Text>
-                  <ArrowRight size={wp(4)} color="white" />
+          {/* Marketplace Header & Search */}
+          <View style={styles.marketplaceHeader}>
+            <View style={styles.marketplaceTitleContainer}>
+              <Text style={styles.marketplaceTitle}>Marketplace</Text>
+            </View>
+            <View style={styles.searchContainer}>
+              <View style={styles.searchRow}>
+                <View style={styles.searchInputContainer}>
+                  <Search size={wp(4)} color="#9CA3AF" />
+                  <TextInput
+                    placeholder="Search for items..."
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    style={styles.searchInput}
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+                <TouchableOpacity
+                  style={styles.filterButton}
+                  onPress={() => setShowFilters(!showFilters)}
+                >
+                  <SlidersHorizontal size={wp(4)} color="#374151" />
                 </TouchableOpacity>
               </View>
-              <View style={styles.dealImageContainer}>
-                <Image
-                  source={{
-                    uri: "https://images.unsplash.com/photo-1706099347777-002ab5e8190c?w=400&h=300&fit=crop",
-                  }}
-                  style={styles.dealImage}
-                  resizeMode="cover"
-                />
-              </View>
             </View>
           </View>
-        </View>
 
-        {/* Marketplace Header */}
-        <View style={styles.marketplaceHeader}>
-          <View style={styles.marketplaceTitleContainer}>
-            <Text style={styles.marketplaceTitle}>Marketplace</Text>
-          </View>
-
-          {/* Search Bar */}
-          <View style={styles.searchContainer}>
-            <View style={styles.searchRow}>
-              <View style={styles.searchInputContainer}>
-                <Search size={wp(4)} color="#9CA3AF" style={styles.searchIcon} />
-                <TextInput
-                  placeholder="Search for items..."
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  style={styles.searchInput}
-                  placeholderTextColor="#9CA3AF"
-                />
+          {/* Listings */}
+          <View style={styles.listingsContainer}>
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#3F51B5" />
               </View>
-              <TouchableOpacity
-                style={styles.filterButton}
-                onPress={() => setShowFilters(!showFilters)}
-              >
-                <SlidersHorizontal size={wp(4)} color="#374151" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {/* Listings Grid */}
-        <View style={styles.listingsContainer}>
-          <FlatList
-            data={mockListings}
-            renderItem={({ item }) => (
-              <View style={styles.listingItem}>
-                <ListingCard
-                  listing={item}
-                  onViewListing={handleViewListing}
-                  liked={likedListings.has(item.id)}
-                  onLikeClick={() => toggleLike(item.id)}
-                />
+            ) : listings.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Package size={wp(14)} color="#9CA3AF" />
+                <Text style={styles.emptyTitle}>No listings found</Text>
+                <Text style={styles.emptySubtitle}>
+                  Try adjusting your filters or search
+                </Text>
               </View>
+            ) : (
+              <FlatList
+                data={listings}
+                renderItem={({ item }) => (
+                  <View style={styles.listingItem}>
+                    <ListingCard
+                      listing={item}
+                      onViewListing={handleViewListing}
+                      liked={likedListings.has(item.id)}
+                      onLikeClick={() => toggleLike(item.id)}
+                    />
+                  </View>
+                )}
+                keyExtractor={(item) => item.id}
+                numColumns={2}
+                scrollEnabled={false}
+                contentContainerStyle={styles.listingsGrid}
+              />
             )}
-            keyExtractor={(item) => item.id}
-            numColumns={2}
-            scrollEnabled={false}
-            contentContainerStyle={styles.listingsGrid}
-          />
-        </View>
-      </ScrollView>
-    </ScreenWrapper>
+          </View>
+        </ScrollView>
+      </ScreenWrapper>
     </>
   );
 }
+
+
 
 const styles = StyleSheet.create({
   scrollView: {
@@ -365,4 +340,31 @@ const styles = StyleSheet.create({
     flex: 1,
     margin: wp(0.75),
   },
+
+  loadingContainer: {
+  paddingVertical: hp(6),
+  alignItems: "center",
+},
+
+emptyState: {
+  paddingVertical: hp(8),
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+emptyTitle: {
+  marginTop: hp(2),
+  fontSize: wp(4.5),
+  fontWeight: "600",
+  color: "#6B7280",
+},
+
+emptySubtitle: {
+  marginTop: hp(1),
+  fontSize: wp(3.5),
+  color: "#9CA3AF",
+  textAlign: "center",
+  paddingHorizontal: wp(10),
+},
+
 });

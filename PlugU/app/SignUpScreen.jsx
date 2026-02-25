@@ -17,9 +17,11 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import { hp, wp } from '../utilities/dimensions';
 import { router } from 'expo-router';
 import {useAuth} from '../context/authContext'
+import * as Location from "expo-location";
+
 
 const SignUpScreen = ( ) => {
-  const { signUp, loading } = useAuth();
+  const { signUp, isLoading } = useAuth();
 
 
   const [name, setName] = useState('');
@@ -48,6 +50,17 @@ const SignUpScreen = ( ) => {
     router.replace("/LoginScreen");
   };
 
+  const getUserLocation = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+
+    if (status !== "granted") {
+      throw new Error("Permission denied");
+     }
+
+    const location = await Location.getCurrentPositionAsync({});
+   return location.coords;
+  };
+
 
 const handleSubmit = async () => {
   if (!agreeToTerms) {
@@ -55,7 +68,7 @@ const handleSubmit = async () => {
     return;
   }
 
-  if (!name || !email || !password) {
+  if (!name || !email || !password || !confirmPassword) {
     Alert.alert('Error', 'All fields are required');
     return;
   }
@@ -66,7 +79,11 @@ const handleSubmit = async () => {
   }
 
   try {
-    await signUp(email, password, name);
+    await signUp({
+      email,
+      password,
+      fullName: name,
+    });
 
     Alert.alert(
       "Success",
@@ -235,7 +252,7 @@ const handleSubmit = async () => {
                   <User size={wp(4.5)} color="#9ca3af" style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="John Doe"
+                    placeholder="Your Name"
                     placeholderTextColor="#9ca3af"
                     value={name}
                     onChangeText={setName}
@@ -346,13 +363,13 @@ const handleSubmit = async () => {
               <TouchableOpacity
                 style={[
                   styles.submitButton,
-                  (!agreeToTerms || loading) && styles.submitButtonDisabled,
+                  (!agreeToTerms || isLoading) && styles.submitButtonDisabled,
                 ]}
                 onPress={handleSubmit}
-                disabled={!agreeToTerms || loading}
+                disabled={!agreeToTerms || isLoading}
               >
                 <Text style={styles.submitButtonText}>
-                  {loading ? "Creating account..." : "Create Account"}
+                  {isLoading ? "Creating account..." : "Create Account"}
                 </Text>
               </TouchableOpacity>
 
@@ -491,17 +508,17 @@ const styles = StyleSheet.create({
   termsContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: hp(0.8), // Reduced margin
-    marginBottom: hp(2.5), // Reduced margin
+    marginTop: hp(0.8), 
+    marginBottom: hp(2.5), 
   },
   checkbox: {
-    width: wp(4.5), // Smaller checkbox
-    height: wp(4.5), // Smaller checkbox
+    width: wp(4.5), 
+    height: wp(4.5), 
     borderWidth: 2,
     borderColor: '#d1d5db',
     borderRadius: wp(1),
-    marginRight: wp(2.5), // Reduced margin
-    marginTop: wp(0.3), // Reduced margin
+    marginRight: wp(2.5), 
+    marginTop: wp(0.3),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -510,16 +527,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#3F51B5',
   },
   checkboxInner: {
-    width: wp(2.2), // Smaller inner
-    height: wp(2.2), // Smaller inner
+    width: wp(2.2), 
+    height: wp(2.2), 
     backgroundColor: 'white',
-    borderRadius: wp(0.4), // Reduced radius
+    borderRadius: wp(0.4), 
   },
   termsText: {
     flex: 1,
-    fontSize: wp(3.3), // Slightly smaller
+    fontSize: wp(3.3), 
     color: '#6b7280',
-    lineHeight: wp(4.2), // Adjusted line height
+    lineHeight: wp(4.2), 
   },
   link: {
     color: '#3F51B5',
@@ -527,35 +544,35 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: '#3F51B5',
-    borderRadius: wp(2.5), // Reduced border radius
-    paddingVertical: hp(1.8), // Reduced padding
+    borderRadius: wp(2.5), 
+    paddingVertical: hp(1.8), 
     alignItems: 'center',
     shadowColor: '#3F51B5',
     shadowOffset: {
       width: 0,
-      height: 8, // Reduced shadow
+      height: 8, 
     },
-    shadowOpacity: 0.25, // Reduced opacity
-    shadowRadius: 15, // Reduced radius
-    elevation: 6, // Reduced elevation
+    shadowOpacity: 0.25, 
+    shadowRadius: 15, 
+    elevation: 6, 
   },
   submitButtonDisabled: {
     opacity: 0.5,
   },
   submitButtonText: {
     color: 'white',
-    fontSize: wp(4.2), // Slightly smaller
+    fontSize: wp(4.2), 
     fontWeight: '600',
   },
   footer: {
     alignItems: 'center',
   },
   footerText: {
-    fontSize: wp(3.8), // Slightly smaller
+    fontSize: wp(3.8),
     color: '#374151',
   },
   footerLink: {
-    color: '#3F51B5',
+    color: '#dfdfdfff',
     fontWeight: '500',
   },
 });

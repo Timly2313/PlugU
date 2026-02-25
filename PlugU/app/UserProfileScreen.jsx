@@ -1,5 +1,4 @@
-// UserProfileScreen.js
-import React from 'react';
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,212 +6,255 @@ import {
   TouchableOpacity,
   Image,
   FlatList,
-  StyleSheet
-} from 'react-native';
-import { ArrowLeft, Star, Heart, Share2, Bookmark, MapPin } from 'lucide-react-native';
-import { hp, wp } from '../utilities/dimensions';
-import ScreenWrapper from '../components/ScreenWrapper';
-import { router } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
+import { ArrowLeft, Star, Heart, Share2, Bookmark, MapPin } from "lucide-react-native";
+import { StatusBar } from "expo-status-bar";
+import { router, useLocalSearchParams } from "expo-router";
+import { supabase } from "../lib/supabase";
+import { fetchListings } from "../services/listingsService";
+import { hp, wp } from "../utilities/dimensions";
 
-const UserProfileScreen = ({ userId }) => {
-  
-  const onBack = () => {
-    router.back();
-  };
+const UserProfileScreen = () => {
+  const { userId } = useLocalSearchParams();
 
-  const userData = {
-    name: 'Sarah Johnson',
-    avatar: 'SJ',
-    rating: '4.9',
-    totalListings: '15',
-    soldItems: '23',
-    memberSince: 'Jan 2024',
-    bio: 'Interior design enthusiast and vintage furniture collector. Love finding unique pieces and giving them new life!',
-    location: 'San Francisco, CA'
-  };
+  const [profile, setProfile] = useState(null);
+  const [listings, setListings] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const userListings = [
-    {
-      id: '7',
-      title: 'Vintage Armchair',
-      price: 180,
-      location: 'San Francisco, CA',
-      image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop',
-      category: 'Furniture',
-    },
-    {
-      id: '8',
-      title: 'Modern Lamp',
-      price: 65,
-      location: 'San Francisco, CA',
-      image: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&h=300&fit=crop',
-      category: 'Home',
-    },
-    {
-      id: '9',
-      title: 'Coffee Table',
-      price: 220,
-      location: 'San Francisco, CA',
-      image: 'https://images.unsplash.com/photo-1533090368676-1fd25485db88?w=400&h=300&fit=crop',
-      category: 'Furniture',
-    },
-    {
-      id: '10',
-      title: 'Dining Chairs Set',
-      price: 340,
-      location: 'San Francisco, CA',
-      image: 'https://images.unsplash.com/photo-1530018607912-eff2daa1bac4?w=400&h=300&fit=crop',
-      category: 'Furniture',
-    },
-  ];
+  const onBack = () => router.back();
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const loadData = async () => {
+      try {
+        setLoading(true);
+
+        // 1️⃣ Fetch user profile
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", userId)
+          .single();
+
+        if (profileError) throw profileError;
+        setProfile(profileData);
+
+        // 2️⃣ Fetch user listings
+        const userListings = await fetchListings({
+          mode: "myListings",
+          userId,
+        });
+
+        setListings(
+         userListings.map((item) => ({
+          id: item.id,
+          title: item.title,
+          price: item.price,
+          location: item.location,
+          image: item.media_url?.[0],
+          category: item.category,
+          status: item.status,
+        }))
+      );
+
+      } catch (err) {
+        console.error("Profile load error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [userId]);
 
   const handleViewListing = (listingId) => {
     router.push({
       pathname: "/ListingDetailsScreen",
-      params: { listingId }
+      params: { listingId },
     });
   };
 
-  const handleLikeListing = (listingId) => {
-    console.log('Liked listing:', listingId);
-  };
+  const formatMemberSince = date =>
+  new Date(date).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  });
 
-  const handleShareListing = (listingId) => {
-    console.log('Share listing:', listingId);
-  };
-
-  const handleSaveListing = (listingId) => {
-    console.log('Saved listing:', listingId);
-  };
-
-  // Custom ListingCard with action buttons inline with price
-  const CustomListingCard = ({ listing }) => (
-    <View style={customStyles.card}>
-      <TouchableOpacity onPress={() => handleViewListing(listing.id)}>
-        <View style={customStyles.imageContainer}>
-          <Image 
-            source={{ uri: listing.image }} 
-            style={customStyles.image}
-            resizeMode="cover"
-          />
+ const ListingCard = ({ listing, onPress }) => (
+  <TouchableOpacity
+    activeOpacity={0.85}
+    onPress={() => onPress(listing.id)}
+    style={customStyles.card}
+  >
+    <View style={customStyles.imageContainer}>
+      {listing.image ? (
+        <Image
+          source={{ uri: listing.image }}
+          style={customStyles.image}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={customStyles.imagePlaceholder}>
+          <Text>No image</Text>
         </View>
-        
-        <View style={customStyles.infoContainer}>
-          <Text style={customStyles.title} numberOfLines={1}>{listing.title}</Text>
-          
-          {/* Price and Action Buttons Row */}
-          <View style={customStyles.priceActionsRow}>
-            <Text style={customStyles.price}>${listing.price}</Text>
-            <View style={customStyles.actionButtons}>
-              <TouchableOpacity 
-                style={customStyles.actionButton}
-                onPress={() => handleLikeListing(listing.id)}
-              >
-                <Heart size={wp(5)} color="#6B7280" />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={customStyles.actionButton}
-                onPress={() => handleShareListing(listing.id)}
-              >
-                <Share2 size={wp(5)} color="#6B7280" />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={customStyles.actionButton}
-                onPress={() => handleSaveListing(listing.id)}
-              >
-                <Bookmark size={wp(5)} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          <View style={customStyles.locationRow}>
-            <MapPin size={wp(3)} color="#6B7280" />
-            <Text style={customStyles.location} numberOfLines={1}>{listing.location}</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-    </View>
-  );
+      )}
 
-  const renderListingItem = ({ item }) => (
-    <View style={styles.listingItem}>
-      <CustomListingCard listing={item} />
+      {/* Status badge */}
+      <View
+        style={[
+          customStyles.statusBadge,
+          listing.status === "active" && customStyles.activeStatus,
+          listing.status === "sold" && customStyles.soldStatus,
+          listing.status === "pending" && customStyles.pendingStatus,
+        ]}
+      >
+        <Text style={customStyles.statusText}>{listing.status}</Text>
+      </View>
     </View>
-  );
+
+    <View style={customStyles.infoContainer}>
+      <Text style={customStyles.title} numberOfLines={1}>
+        {listing.title}
+      </Text>
+
+      <Text style={customStyles.price}>${listing.price}</Text>
+
+      <View style={customStyles.locationRow}>
+        <MapPin size={wp(3)} color="#6B7280" />
+        <Text style={customStyles.location} numberOfLines={1}>
+          {listing.location}
+        </Text>
+      </View>
+    </View>
+  </TouchableOpacity>
+);
+
+
+  if (loading) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <View style={styles.loader}>
+        <Text>User not found</Text>
+      </View>
+    );
+  }
 
   return (
-  <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-    <StatusBar style="light" />
-    {/* Banner Section with Floating Back Button */}
-    <View style={styles.bannerSection}>
-      <View style={styles.banner} />
-      {/* Floating Back Button */}
-      <TouchableOpacity style={styles.floatingBackButton} onPress={onBack}>
-        <ArrowLeft size={wp(5)} color="white" />
-      </TouchableOpacity>
-      <View style={styles.avatarContainer}>
-        <View style={styles.avatar}>
-          <View style={styles.avatarContent}>
-            <Text style={styles.avatarText}>{userData.avatar}</Text>
-          </View>
-        </View>
-      </View>
-    </View>
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <StatusBar style="light" />
 
-    {/* User Info */}
-    <View style={styles.userInfo}>
-      <Text style={styles.userName}>{userData.name}</Text>
+      {/* Banner */}
+     
+        <View style={styles.bannerSection}>
+          {profile?.banner_url ? (
+        <Image
+            source={{ uri: profile.banner_url }}
+            style={styles.banner}
+          />
+        ) : (
+          <View style={styles.banner} />
+        )}
       
-      {/* Rating and Member Since */}
-      <View style={styles.ratingContainer}>
-        <Star size={wp(3.5)} color="#3F51B5" fill="#3F51B5" />
-        <Text style={styles.ratingText}>{userData.rating}</Text>
-        <Text style={styles.separator}>•</Text>
-        <Text style={styles.memberSince}>Member since {userData.memberSince}</Text>
+
+        <TouchableOpacity style={styles.floatingBackButton} onPress={onBack}>
+          <ArrowLeft size={wp(5)} color="white" />
+        </TouchableOpacity>
+
+        <View style={styles.avatarContainerInline}>
+            <View style={styles.avatar}>
+              {profile?.avatar_url ? (
+                <Image
+                  source={{ uri: profile.avatar_url }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <Text style={styles.avatarText}>
+                  {profile?.full_name?.charAt(0)?.toUpperCase() ?? "U"}
+                </Text>
+              )}
+            </View>
+
+            </View>
       </View>
 
-      {/* Location */}
-      <View style={styles.locationContainer}>
-        <MapPin size={wp(3.5)} color="#6B7280" />
-        <Text style={styles.locationText}>{userData.location}</Text>
+      {/* User Info */}
+      <View style={styles.userInfo}>
+        <Text style={styles.userName}>{profile.full_name}</Text>
+        {/* Rating and Member Since */} 
+        <View style={styles.ratingContainer}>
+           <Star size={wp(3.5)} color="#3F51B5" fill="#3F51B5" />
+            <Text style={styles.ratingText}>5.0</Text> 
+            <Text style={styles.separator}>•</Text> 
+            <Text style={styles.memberSince}>
+              Member Since • {formatMemberSince(profile?.created_at)}
+            </Text>
+
+        </View>
+
+        <View style={styles.locationContainer}>
+          <MapPin size={wp(3.5)} color="#6B7280" />
+          <Text style={styles.locationText}>{profile.location}</Text>
+        </View>
+
+        <Text
+          style={styles.description}
+          numberOfLines={3}
+          ellipsizeMode="tail">
+            {profile?.description || "No description yet"}
+        </Text>
       </View>
 
-      {/* User Bio */}
-      <Text style={styles.userBio}>{userData.bio}</Text>
-    </View>
+      {/* Stats */} 
+      {/* <View style={styles.statsContainer}> 
+        <View style={styles.statsGrid}> 
+          <View style={styles.statItem}> 
+            <Text style={styles.statNumber}>{userData.totalListings}</Text> 
+            <Text style={styles.statLabel}>Listings</Text> 
+          </View> 
+          <View style={styles.statItem}> 
+            <Text style={styles.statNumber}>{userData.soldItems}</Text> 
+            <Text style={styles.statLabel}>Sold</Text> 
+          </View> 
+          <View style={styles.statItem}> 
+            <Text style={styles.statNumber}>{userData.rating}</Text> 
+            <Text style={styles.statLabel}>Rating</Text> 
+          </View> 
+        </View>
+      </View> */}
 
-    {/* Stats */}
-    <View style={styles.statsContainer}>
-      <View style={styles.statsGrid}>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{userData.totalListings}</Text>
-          <Text style={styles.statLabel}>Listings</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{userData.soldItems}</Text>
-          <Text style={styles.statLabel}>Sold</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{userData.rating}</Text>
-          <Text style={styles.statLabel}>Rating</Text>
-        </View>
-      </View>
-    </View>
+      {/* Listings */}
+      <View style={styles.listingsContainer}>
+        <Text style={styles.listingsTitle}>All Listings</Text>
 
-    {/* Listings */}
-    <View style={styles.listingsContainer}>
-      <Text style={styles.listingsTitle}>All Listings</Text>
       <FlatList
-        data={userListings}
-        renderItem={renderListingItem}
+        data={listings}
+        renderItem={({ item }) => (
+          <View style={styles.gridItem}>
+            <ListingCard
+              listing={item}
+              onPress={handleViewListing}
+            />
+          </View>
+        )}
         keyExtractor={(item) => item.id}
         numColumns={2}
         scrollEnabled={false}
-        contentContainerStyle={styles.listingsGrid}
+        showsVerticalScrollIndicator={false}
       />
-    </View>
-  </ScrollView>
+
+
+      </View>
+    </ScrollView>
   );
 };
 
@@ -232,6 +274,7 @@ const customStyles = StyleSheet.create({
     elevation: 2,
   },
   imageContainer: {
+    position: 'relative',
     width: '100%',
     aspectRatio: 1,
     backgroundColor: '#F3F4F6',
@@ -240,6 +283,31 @@ const customStyles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  statusBadge: {
+    position: 'absolute',
+    top: wp(2),
+    left: wp(2),
+    paddingHorizontal: wp(2),
+    paddingVertical: hp(0.3),
+    borderRadius: wp(50),
+  },
+  activeStatus: {
+    backgroundColor: '#10B981',
+  },
+  soldStatus: {
+    backgroundColor: '#6B7280',
+  },
+  pendingStatus: {
+    backgroundColor: '#F59E0B',
+  },
+  draftStatus: {
+    backgroundColor: '#6B7280',
+  },
+  statusText: {
+    color: 'white',
+    fontSize: wp(2.2),
+    fontWeight: '500',
+  },
   infoContainer: {
     padding: wp(2.5),
   },
@@ -247,33 +315,19 @@ const customStyles = StyleSheet.create({
     color: '#111827',
     fontSize: wp(3.5),
     fontWeight: '500',
-    marginBottom: hp(0.8),
+    marginBottom: hp(0.5),
   },
-  priceActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: hp(0.8),
+  priceRow: {
+    marginBottom: hp(1),
   },
   price: {
     color: '#3F51B5',
     fontSize: wp(4),
     fontWeight: '600',
   },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: wp(1),
-  },
-  actionButton: {
-    width: wp(6),
-    height: wp(6),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: wp(1),
   },
   location: {
     color: '#6B7280',
@@ -288,6 +342,11 @@ const styles = StyleSheet.create({
   },
   bannerSection: {
     position: 'relative',
+  },
+
+  gridItem: {
+    flex: 1,
+    margin: wp(1),
   },
   banner: {
     height: hp(20),
@@ -306,45 +365,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarContainer: {
-    position: 'absolute',
-    left: '50%',
-    bottom: -hp(6),
-    transform: [{ translateX: -wp(12) }],
+  avatarContainerInline: {
+    position: 'relative',
+    alignSelf: 'center',
+    marginTop: hp(-10),
   },
   avatar: {
-    width: wp(24),
-    height: wp(24),
-    borderRadius: wp(12),
+    width: wp(30),
+    height: wp(30),
+    borderRadius: wp(50),
     backgroundColor: 'white',
     borderWidth: 4,
     borderColor: 'white',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 2,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    overflow: 'hidden',
-  },
-  avatarContent: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#3F51B5',
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#3F51B5',
   },
   avatarText: {
-    fontSize: wp(6),
     color: 'white',
-    fontWeight: 'bold',
+    fontSize: wp(5),
+    fontWeight: '600',
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: wp(50),
   },
   userInfo: {
-    paddingTop: hp(8),
+    paddingTop: hp(2),
     paddingBottom: hp(2),
-    paddingHorizontal: wp(4),
     alignItems: 'center',
   },
   userName: {
@@ -353,6 +410,15 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: hp(0.5),
   },
+
+   description: {
+    fontSize: wp(3.5),
+    color: '#6B7280',
+    marginBottom: hp(1.5),
+    textAlign: 'center',
+    lineHeight: hp(2.2),
+  },
+
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -432,9 +498,7 @@ const styles = StyleSheet.create({
     marginBottom: hp(1.5),
     paddingHorizontal: wp(1),
   },
-  listingsGrid: {
-    gap: hp(1),
-  },
+
   listingItem: {
     flex: 1,
     margin: wp(0.5),

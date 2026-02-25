@@ -19,7 +19,9 @@
     "expo-image-picker": "^17.0.8",
     "expo-linear-gradient": "^15.0.7",
     "expo-linking": "~8.0.8",
+    "expo-location": "~19.0.8",
     "expo-router": "~6.0.14",
+    "expo-secure-store": "^15.0.8",
     "expo-splash-screen": "~31.0.10",
     "expo-status-bar": "~3.0.8",
     "expo-web-browser": "~15.0.9",
@@ -40,6 +42,7 @@
     "@types/react": "~19.1.0",
     "react-native-dotenv": "^3.4.11",
     "react-test-renderer": "19.1.0",
+    "supabase": "^2.72.8",
     "typescript": "~5.9.2"
   },
   "private": true

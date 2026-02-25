@@ -10,7 +10,7 @@ import { useAuth } from "../context/authContext";
 
 const LoginScreen = () => {
   
-  const { login, loading, user } = useAuth();
+  const { signIn, isLoading, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -21,18 +21,17 @@ const LoginScreen = () => {
   };
 
   const handleSubmit = async () => {
-   if (!email || !password) {
-     Alert.alert('Error', 'Email and password are required');
-     return;
-   }  
+    if (!email || !password) {
+      Alert.alert('Error', 'Email and password are required');
+      return;
+    }
 
-   try {
-     await login(email, password);
-     // DO NOT navigate here
-   } catch (error) {
-     Alert.alert('Login failed', error.message);
-   }
- };
+    try {
+      await signIn({ email, password });
+    } catch (error) {
+      Alert.alert('Login failed', error.message);
+    }
+  };
 
    useEffect(() => {
   if (user) {
@@ -243,13 +242,13 @@ const LoginScreen = () => {
               </View>
 
               <TouchableOpacity
-                style={[styles.submitButton, loading && { opacity: 0.6 }]}
+                style={[styles.submitButton, isLoading && { opacity: 0.6 }]}
                 onPress={handleSubmit}
-                disabled={loading}
+                disabled={isLoading}
 
               >
               <Text style={styles.submitButtonText}>
-                 {loading ? 'Signing in...' : 'Sign In'}
+                 {isLoading ? 'Signing in...' : 'Sign In'}
               </Text>
               </TouchableOpacity>
 
