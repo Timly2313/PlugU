@@ -97,7 +97,7 @@ const imageUri = Array.isArray(listing.images)
 
       {/* Info */}
       <View style={styles.infoContainer}>
-        <Text style={styles.title} numberOfLines={2}>
+        <Text style={styles.title} numberOfLines={1}>
           {listing.title}
         </Text>
 

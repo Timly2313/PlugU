@@ -172,7 +172,7 @@ export default function MarketScreen() {
           <View style={styles.topBar}>
             <View>
               <Text style={styles.greeting}>
-                Hi, {profile?.username || "there"} 👋
+                Hi, {profile?.username || "there"} 
               </Text>
               <Text style={styles.subtitle}>What are you looking for?</Text>
             </View>
