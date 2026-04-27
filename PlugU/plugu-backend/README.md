@@ -1,479 +1,149 @@
-# PlugU Backend
+# PlugU - Complete Supabase Backend
 
-A production-ready, scalable backend for the PlugU social content platform built with Supabase. Designed to support 100K+ users in the first growth phase and millions of listings long-term.
+A production-ready backend for a hybrid Social Media + Marketplace app.
 
-## Features
-
-- **Complete Social Platform**: Posts, likes, comments, tags, user profiles
-- **Marketplace**: Listings with categories, search, and location-based discovery
-- **Real-time Messaging**: Conversations and direct messaging
-- **AI Moderation**: Text, image, email, and phone validation
-- **High Performance**: Materialized views, optimized indexes, pagination
-- **Security**: Row Level Security (RLS), JWT authentication, rate limiting
-- **Scalability**: Designed for horizontal scaling with Supabase
-
-## Architecture
+## 📁 Project Structure
 
 ```
 plugu-backend/
 ├── supabase/
-│   ├── migrations/           # SQL schema migrations
-│   │   ├── 001_core.sql     # Core tables, indexes, RLS
-│   │   ├── 002_feed_views.sql # Materialized views for feeds
-│   │   └── 003_rpcs.sql     # Stored procedures and functions
-│   ├── functions/           # Edge Functions (TypeScript)
-│   │   ├── _shared/         # Shared modules
-│   │   │   ├── db.ts       # Database utilities
-│   │   │   ├── auth.ts     # Authentication & authorization
-│   │   │   ├── response.ts # Response helpers
-│   │   │   ├── validate.ts # Input validation
-│   │   │   └── moderation.ts # AI moderation
-│   │   ├── createPost/     # Create social post
-│   │   ├── getFeed/        # Get personalized feed
-│   │   ├── likePost/       # Like/unlike post
-│   │   ├── commentPost/    # Comment on post
-│   │   ├── createListing/  # Create marketplace listing
-│   │   ├── getUserListings/# Get user's listings
-│   │   ├── moderateContent/# AI moderation endpoint
-│   │   ├── sendMessage/    # Send message
-│   │   └── fetchNotifications/ # Get notifications
-│   └── config.toml         # Supabase configuration
-├── docs/                   # Documentation
-├── examples/               # Integration examples
-│   └── react-native/      # React Native examples
-└── package.json           # NPM scripts
+│   ├── migrations/
+│   │   ├── 001_core_complete.sql      # Main database schema
+│   │   └── 002_storage_policies.sql   # Storage bucket policies
+│   └── functions/
+│       ├── handle_new_user/           # Auto-create profile on signup
+│       ├── search_listings/           # Advanced listing search
+│       ├── create_listing/            # Create + moderate listing
+│       ├── track_listing_view/        # Analytics tracking
+│       ├── create_post/               # Create + moderate post
+│       ├── like_post/                 # Like/unlike + notification
+│       ├── comment_post/              # Comment + reply + notification
+│       ├── send_message/              # Send message + create convo
+│       ├── get_conversations/         # Get user conversations
+│       ├── send_notification/         # Send notification (admin)
+│       ├── mark_notifications_read/   # Mark as read
+│       ├── track_profile_view/        # Profile view analytics
+│       ├── track_search/              # Search keyword analytics
+│       ├── review_listing/            # Create review
+│       └── moderate_content/          # AI content moderation
+├── frontend-examples/
+│   ├── auth.js                        # Auth + location
+│   ├── posts.js                       # Posts + feed + likes
+│   ├── listings.js                    # Listings + search + reviews
+│   ├── messaging.js                   # Messages + realtime
+│   ├── notifications.js               # Notifications
+│   └── profile.js                     # Profile + follow + upload
+└── README.md
 ```
 
-## Quick Start
+## 🚀 Setup Instructions
 
-### Prerequisites
+### 1. Create Supabase Project
+- Go to [supabase.com](https://supabase.com)
+- Create a new project
+- Note your `Project URL` and `anon/service_role` keys
 
-- [Node.js](https://nodejs.org/) 18+
-- [Supabase CLI](https://supabase.com/docs/guides/cli)
-- [Deno](https://deno.land/) (for Edge Functions)
+### 2. Run SQL Migrations
+1. Open Supabase SQL Editor
+2. Run `001_core_complete.sql` first
+3. Run `002_storage_policies.sql` second
 
-### 1. Install Dependencies
+### 3. Create Storage Buckets
+In Supabase Dashboard > Storage:
+- Create bucket: `avatars` (public)
+- Create bucket: `post-media` (public)
+- Create bucket: `listing-images` (public)
 
+### 4. Deploy Edge Functions
 ```bash
-# Install Supabase CLI globally
+# Install Supabase CLI if not already installed
 npm install -g supabase
 
-# Or use npx
-npx supabase --version
-```
+# Login
+supabase login
 
-### 2. Clone and Setup
+# Link your project
+supabase link --project-ref YOUR_PROJECT_REF
 
-```bash
-git clone <repository-url>
-cd plugu-backend
-
-# Copy environment variables
-cp supabase/functions/.env.example supabase/functions/.env
-
-# Edit .env with your actual values
-nano supabase/functions/.env
-```
-
-### 3. Start Local Development
-
-```bash
-# Start Supabase locally
-supabase start
-
-# Check status
-supabase status
-```
-
-### 4. Run Migrations
-
-```bash
-# Reset database and apply all migrations
-supabase db reset
-
-# Or push migrations to linked project
-supabase db push
-```
-
-### 5. Deploy Edge Functions
-
-```bash
 # Deploy all functions
-npm run functions:deploy:all
-
-# Or deploy individually
-supabase functions deploy createPost
-supabase functions deploy getFeed
-# ... etc
+supabase functions deploy handle_new_user
+supabase functions deploy search_listings
+supabase functions deploy create_listing
+supabase functions deploy track_listing_view
+supabase functions deploy create_post
+supabase functions deploy like_post
+supabase functions deploy comment_post
+supabase functions deploy send_message
+supabase functions deploy get_conversations
+supabase functions deploy send_notification
+supabase functions deploy mark_notifications_read
+supabase functions deploy track_profile_view
+supabase functions deploy track_search
+supabase functions deploy review_listing
+supabase functions deploy moderate_content
 ```
 
-## Database Schema
+### 5. Configure Auth Webhook
+In Supabase Dashboard > Auth > Hooks:
+- Set `handle_new_user` as the `user.created` webhook
 
-### Core Tables
+### 6. Configure Database Webhooks (for moderation)
+In Supabase Dashboard > Database > Webhooks:
+- Create webhook on `moderation_queue` table, `INSERT` event
+- Target: `moderate_content` Edge Function
 
-| Table | Description |
-|-------|-------------|
-| `profiles` | Extended user profiles |
-| `posts` | Social media posts |
-| `post_likes` | Post like relationships |
-| `comments` | Post comments |
-| `tags` | Content categorization |
-| `post_tags` | Post-tag relationships |
-| `listings` | Marketplace listings |
-| `listing_tags` | Listing-tag relationships |
-| `conversations` | Chat conversations |
-| `conversation_participants` | Conversation members |
-| `messages` | Chat messages |
-| `notifications` | User notifications |
-| `reviews` | User/listing reviews |
-
-### Materialized Views
-
-| View | Purpose |
-|------|---------|
-| `feed_posts_view` | Optimized posts feed with engagement scores |
-| `feed_listings_view` | Optimized listings feed with ranking |
-| `user_feed_preferences_view` | User content preferences |
-| `trending_content_view` | Trending posts and listings |
-
-## Edge Functions
-
-### Posts
-
-| Function | Method | Endpoint | Description |
-|----------|--------|----------|-------------|
-| `createPost` | POST | `/functions/v1/createPost` | Create a new post |
-| `getFeed` | GET | `/functions/v1/getFeed` | Get personalized feed |
-| `likePost` | POST | `/functions/v1/likePost` | Like/unlike a post |
-| `commentPost` | POST | `/functions/v1/commentPost` | Comment on a post |
-
-### Listings
-
-| Function | Method | Endpoint | Description |
-|----------|--------|----------|-------------|
-| `createListing` | POST | `/functions/v1/createListing` | Create a listing |
-| `getUserListings` | GET | `/functions/v1/getUserListings` | Get user's listings |
-
-### Messaging
-
-| Function | Method | Endpoint | Description |
-|----------|--------|----------|-------------|
-| `sendMessage` | POST | `/functions/v1/sendMessage` | Send a message |
-| `fetchNotifications` | GET | `/functions/v1/fetchNotifications` | Get notifications |
-
-### Moderation
-
-| Function | Method | Endpoint | Description |
-|----------|--------|----------|-------------|
-| `moderateContent` | POST | `/functions/v1/moderateContent` | AI content moderation |
-
-## API Usage Examples
-
-### Create a Post
-
-```typescript
-const response = await fetch(
-  `${SUPABASE_URL}/functions/v1/createPost`,
-  {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${jwt}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      content: 'Hello, PlugU!',
-      mediaUrls: ['https://example.com/image.jpg'],
-      location: 'New York, NY',
-      tagIds: ['uuid-tag-1', 'uuid-tag-2'],
-    }),
-  }
-);
-
-const { data } = await response.json();
+### 7. Update Frontend Config
+Replace in `frontend-examples/auth.js`:
+```javascript
+const supabaseUrl = 'https://your-project.supabase.co';
+const supabaseAnonKey = 'your-anon-key';
 ```
 
-### Get Feed
+## 🔐 Security
 
-```typescript
-const response = await fetch(
-  `${SUPABASE_URL}/functions/v1/getFeed?type=personalized&page=1&limit=20`,
-  {
-    headers: {
-      'Authorization': `Bearer ${jwt}`,
-    },
-  }
-);
-
-const { data } = await response.json();
-```
-
-### Like a Post
-
-```typescript
-const response = await fetch(
-  `${SUPABASE_URL}/functions/v1/likePost`,
-  {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${jwt}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      postId: 'uuid-post-id',
-    }),
-  }
-);
-
-const { data } = await response.json();
-// data.liked = true/false
-```
-
-### Create a Listing
-
-```typescript
-const response = await fetch(
-  `${SUPABASE_URL}/functions/v1/createListing`,
-  {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${jwt}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      title: 'Vintage Camera',
-      description: 'A beautiful vintage camera in great condition.',
-      price: 299.99,
-      category: 'Electronics',
-      condition: 'good',
-      images: ['https://example.com/camera1.jpg'],
-      location: 'Los Angeles, CA',
-    }),
-  }
-);
-```
-
-### Send a Message
-
-```typescript
-const response = await fetch(
-  `${SUPABASE_URL}/functions/v1/sendMessage`,
-  {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${jwt}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      conversationId: 'uuid-conversation-id',
-      content: 'Hi, is this still available?',
-    }),
-  }
-);
-```
-
-## AI Moderation
-
-The backend includes comprehensive AI moderation:
-
-### Text Moderation
-- Uses OpenAI Moderation API (with fallback)
-- Detects hate speech, harassment, self-harm, sexual content, violence
-- Configurable thresholds
-
-### Image Moderation
-- Scans for NSFW content
-- Configurable with AWS Rekognition, Google Vision, or Azure
-
-### Email Validation
-- Validates format
-- Checks for disposable emails
-- Detects role accounts
-
-### Phone Validation
-- Validates international format (E.164)
-- Carrier detection
-- Line type identification
-
-### Configuration
-
-Set in `supabase/functions/.env`:
-
-```env
-OPENAI_API_KEY=sk-your-key
-EMAIL_VALIDATION_API_KEY=your-key
-PHONE_VALIDATION_API_KEY=your-key
-```
-
-## Security
-
-### Row Level Security (RLS)
-
-All tables have RLS enabled with policies for:
+- All tables have RLS enabled
 - Users can only modify their own data
-- Public content is readable by everyone
-- Private content requires authentication
+- Public read access where appropriate
+- Edge functions validate auth tokens
+- Content moderation via AI before publishing
 
-### Rate Limiting
+## 📊 Scalability
 
-Built-in rate limiting (configurable):
-- 100 requests per minute per IP
-- Automatic 429 responses when exceeded
+- GIST indexes on coordinates for geo queries
+- Trigram indexes for text search
+- Partial indexes for active content
+- JSONB for flexible metadata
+- Efficient counter columns with triggers
+- RPC functions for complex queries
 
-### Authentication
+## 🔔 Realtime
 
-- JWT-based authentication
-- Supabase Auth integration
-- Optional anonymous access for public content
+Enabled for: posts, comments, post_likes, messages, conversations, notifications, listings, follows
 
-## Performance
-
-### Indexes
-
-All frequently queried fields are indexed:
-- Primary keys (UUID)
-- Foreign keys
-- Search fields (with GIN for text search)
-- Location (with GiST for geo queries)
-- Timestamps (for sorting)
-
-### Materialized Views
-
-Feed queries use materialized views for O(1) performance:
-- `feed_posts_view`: Pre-calculated engagement scores
-- `feed_listings_view`: Pre-calculated ranking scores
-- Auto-refresh on data changes
-
-### Pagination
-
-All list endpoints support cursor-based pagination:
-- `page`: Page number (1-based)
-- `limit`: Items per page (max 100)
-- `cursor`: For efficient deep pagination
-
-## Realtime
-
-Supabase Realtime is enabled for:
-- Posts
-- Comments
-- Likes
-- Messages
-- Notifications
-
-Subscribe in your frontend:
-
-```typescript
-const subscription = supabase
-  .channel('public:posts')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' },
-    (payload) => console.log('Change received!', payload)
-  )
-  .subscribe();
-```
-
-## Deployment
-
-### Deploy to Production
+## 🧪 Testing
 
 ```bash
-# Link to your Supabase project
-supabase link --project-ref your-project-ref
+# Test auth
+node -e "require('./frontend-examples/auth.js')"
 
-# Push database migrations
-supabase db push
-
-# Deploy all Edge Functions
-npm run functions:deploy:all
+# Test feed
+node -e "require('./frontend-examples/posts.js')"
 ```
 
-### Environment Variables
+## 📱 React Native Integration
 
-Set in Supabase Dashboard:
-1. Go to Project Settings > Functions
-2. Add environment variables from `.env`
-
-### Monitoring
-
-- Use Supabase Dashboard for metrics
-- Enable Sentry integration for error tracking
-- Set up log drains for external monitoring
-
-## Development
-
-### Local Testing
-
+1. Install dependencies:
 ```bash
-# Start all services
-supabase start
-
-# Serve Edge Functions locally
-supabase functions serve
-
-# Test specific function
-curl -X POST http://localhost:54321/functions/v1/createPost \
-  -H "Authorization: Bearer ${JWT}" \
-  -H "Content-Type: application/json" \
-  -d '{"content": "Test post"}'
+npx create-expo-app PlugU
+npm install @supabase/supabase-js @react-native-async-storage/async-storage expo-location
 ```
 
-### Database Migrations
+2. Copy frontend examples to your project
+3. Import and use the modules
 
-```bash
-# Create new migration
-supabase migration new my_migration
+## 📝 Notes
 
-# Apply migrations
-supabase migration up
-
-# Reset database (careful!)
-supabase db reset
-```
-
-### Type Generation
-
-```bash
-# Generate TypeScript types from database
-npm run types:generate
-```
-
-## Scaling
-
-### Phase 1: 100K Users
-
-- Supabase Pro plan
-- Read replicas for feed queries
-- Edge Functions for compute-heavy operations
-- Materialized views for feed performance
-
-### Phase 2: 1M+ Users
-
-- Supabase Enterprise
-- Multiple read replicas
-- Connection pooling (PgBouncer)
-- CDN for media (Supabase Storage)
-- Background jobs for notifications
-
-### Phase 3: 10M+ Users
-
-- Custom infrastructure
-- Sharding for user data
-- Separate notification service
-- AI recommendation engine
-- Advanced caching (Redis)
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests
-5. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details
-
-## Support
-
-- Documentation: [docs.plugu.app](https://docs.plugu.app)
-- Issues: [GitHub Issues](https://github.com/plugu/backend/issues)
-- Discord: [PlugU Community](https://discord.gg/plugu)
+- Replace simple keyword moderation in `moderate_content` with OpenAI API for production
+- Add rate limiting on Edge Functions
+- Consider adding caching layer (Redis) for feed
+- Implement push notifications with Expo or Firebase

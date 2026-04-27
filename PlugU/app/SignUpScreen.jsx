@@ -16,13 +16,10 @@ import { Mail, Lock, User, ShoppingBag, Eye, EyeOff } from 'lucide-react-native'
 import ScreenWrapper from '../components/ScreenWrapper';
 import { hp, wp } from '../utilities/dimensions';
 import { router } from 'expo-router';
-import {useAuth} from '../context/authContext'
-import * as Location from "expo-location";
+import { useAuth } from '../context/authContext';
 
-
-const SignUpScreen = ( ) => {
+const SignUpScreen = () => {
   const { signUp, isLoading } = useAuth();
-
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -38,66 +35,79 @@ const SignUpScreen = ( ) => {
   const fadeAnim = useState(new Animated.Value(0))[0];
   const bounceAnim = useState(new Animated.Value(0))[0];
 
-  const onTermsClick = () => {
-    router.push('/TermsOfServiceScreen');
+  const validateStudentEmail = (email) => {
+    const trimmedEmail = email.trim().toLowerCase();
+    const studentEmailRegex = /^\d{9}@student\.uj\.ac\.za$/;
+    return studentEmailRegex.test(trimmedEmail);
   };
 
-  const onPrivacyClick = () => {  
-    router.push('/PrivacyPolicyScreen');
+  const validateForm = (trimmedName, trimmedEmail, trimmedPassword, trimmedConfirmPassword) => {
+    if (!agreeToTerms) {
+      Alert.alert('Error', 'Please accept the Terms and Conditions');
+      return false;
+    }
+
+    if (!trimmedName || !trimmedEmail || !trimmedPassword || !trimmedConfirmPassword) {
+      Alert.alert('Error', 'All fields are required');
+      return false;
+    }
+
+    if (trimmedPassword !== trimmedConfirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return false;
+    }
+
+    if (trimmedPassword.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return false;
+    }
+
+    if (!validateStudentEmail(trimmedEmail)) {
+      Alert.alert(
+        'Invalid Email',
+        'Please use your student email in the format: studentnumber@student.uj.ac.za'
+      );
+      return false;
+    }
+
+    return true;
   };
 
-  const onLoginClick = () => {
-    router.replace("/LoginScreen");
+  const onTermsClick = () => router.push('/TermsOfServiceScreen');
+  const onPrivacyClick = () => router.push('/PrivacyPolicyScreen');
+  const onLoginClick = () => router.replace("/LoginScreen");
+
+  const handleSubmit = async () => {
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
+    const trimmedConfirmPassword = confirmPassword.trim();
+
+    if (!validateForm(trimmedName, trimmedEmail, trimmedPassword, trimmedConfirmPassword)) {
+      return;
+    }
+
+    try {
+      await signUp({
+        email: trimmedEmail,
+        password: trimmedPassword,
+        fullName: trimmedName,
+      });
+
+      Alert.alert(
+        "Check your email",
+        `We sent a confirmation link to ${trimmedEmail}. Please verify your email before signing in.`,
+        [
+          {
+            text: "Go to Login",
+            onPress: () => router.replace("/LoginScreen"),
+          },
+        ]
+      );
+    } catch (error) {
+      Alert.alert("Sign up failed", error.message);
+    }
   };
-
-  const getUserLocation = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-
-    if (status !== "granted") {
-      throw new Error("Permission denied");
-     }
-
-    const location = await Location.getCurrentPositionAsync({});
-   return location.coords;
-  };
-
-
-const handleSubmit = async () => {
-  if (!agreeToTerms) {
-    Alert.alert('Error', 'Please accept the Terms and Conditions');
-    return;
-  }
-
-  if (!name || !email || !password || !confirmPassword) {
-    Alert.alert('Error', 'All fields are required');
-    return;
-  }
-
-  if (password !== confirmPassword) {
-    Alert.alert('Error', 'Passwords do not match');
-    return;
-  }
-
-  try {
-    await signUp({
-      email,
-      password,
-      fullName: name,
-    });
-
-    Alert.alert(
-      "Success",
-      "Account created! Check your email for confirmation."
-    );
-
-    router.replace("/LoginScreen");
-
-  } catch (error) {
-    Alert.alert("Sign up failed", error.message);
-  }
-};
-
-
 
   useEffect(() => {
     startWaveAnimations();
@@ -123,7 +133,6 @@ const handleSubmit = async () => {
         ])
       );
     };
-
     createWaveAnimation(waveAnim1, 10000).start();
     createWaveAnimation(waveAnim2, 15000).start();
     createWaveAnimation(waveAnim3, 20000).start();
@@ -146,95 +155,35 @@ const handleSubmit = async () => {
     ]).start();
   };
 
-  const wave1TranslateY = waveAnim1.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -8],
-  });
-
-  const wave2TranslateY = waveAnim2.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -12],
-  });
-
-  const wave3TranslateY = waveAnim3.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -16],
-  });
-
-  const fadeTranslateY = fadeAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [20, 0],
-  });
-
-  const bounceScale = bounceAnim.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0, 1.1, 1],
-  });
+  const wave1TranslateY = waveAnim1.interpolate({ inputRange: [0, 1], outputRange: [0, -8] });
+  const wave2TranslateY = waveAnim2.interpolate({ inputRange: [0, 1], outputRange: [0, -12] });
+  const wave3TranslateY = waveAnim3.interpolate({ inputRange: [0, 1], outputRange: [0, -16] });
+  const fadeTranslateY = fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] });
+  const bounceScale = bounceAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 1.1, 1] });
 
   return (
     <ScreenWrapper bg="#f8fafc">
-                {/* Animated Wave Background */}
-        <View style={styles.waveContainer}>
-          <Animated.View
-            style={[
-              styles.wave,
-              {
-                transform: [{ translateY: wave1TranslateY }],
-                opacity: 0.3,
-              },
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.wave,
-              {
-                transform: [{ translateY: wave2TranslateY }],
-                opacity: 0.5,
-              },
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.wave,
-              {
-                transform: [{ translateY: wave3TranslateY }],
-                opacity: 1,
-              },
-            ]}
-          />
-        </View>
+      <View style={styles.waveContainer}>
+        <Animated.View style={[styles.wave, { transform: [{ translateY: wave1TranslateY }], opacity: 0.3 }]} />
+        <Animated.View style={[styles.wave, { transform: [{ translateY: wave2TranslateY }], opacity: 0.5 }]} />
+        <Animated.View style={[styles.wave, { transform: [{ translateY: wave3TranslateY }], opacity: 1 }]} />
+      </View>
+
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-
-
-        {/* Sign Up Form */}
         <Animated.View
-          style={[
-            styles.formContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: fadeTranslateY }],
-            },
-          ]}
+          style={[styles.formContainer, { opacity: fadeAnim, transform: [{ translateY: fadeTranslateY }] }]}
         >
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Logo */}
             <View style={styles.logoContainer}>
-              <Animated.View
-                style={[
-                  styles.logo,
-                  {
-                    transform: [{ scale: bounceScale }],
-                  },
-                ]}
-              >
+              <Animated.View style={[styles.logo, { transform: [{ scale: bounceScale }] }]}>
                 <ShoppingBag size={wp(10)} color="#3F51B5" />
               </Animated.View>
             </View>
@@ -245,7 +194,7 @@ const handleSubmit = async () => {
             </View>
 
             <View style={styles.form}>
-              {/* Name Input */}
+              {/* Full Name */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Full Name</Text>
                 <View style={styles.inputWrapper}>
@@ -257,31 +206,29 @@ const handleSubmit = async () => {
                     value={name}
                     onChangeText={setName}
                     returnKeyType="next"
-                    required
                   />
                 </View>
               </View>
 
-              {/* Email Input */}
+              {/* Student Email */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Email</Text>
+                <Text style={styles.label}>Student Email</Text>
                 <View style={styles.inputWrapper}>
                   <Mail size={wp(4.5)} color="#9ca3af" style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="your@email.com"
+                    placeholder="studentnumber@student.uj.ac.za"
                     placeholderTextColor="#9ca3af"
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     returnKeyType="next"
-                    required
                   />
                 </View>
               </View>
 
-              {/* Password Input */}
+              {/* Password */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Password</Text>
                 <View style={styles.inputWrapper}>
@@ -294,22 +241,14 @@ const handleSubmit = async () => {
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
                     returnKeyType="next"
-                    required
                   />
-                  <TouchableOpacity
-                    style={styles.eyeButton}
-                    onPress={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff size={wp(4.5)} color="#9ca3af" />
-                    ) : (
-                      <Eye size={wp(4.5)} color="#9ca3af" />
-                    )}
+                  <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)}>
+                    {showPassword ? <EyeOff size={wp(4.5)} color="#9ca3af" /> : <Eye size={wp(4.5)} color="#9ca3af" />}
                   </TouchableOpacity>
                 </View>
               </View>
 
-              {/* Confirm Password Input */}
+              {/* Confirm Password */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Confirm Password</Text>
                 <View style={styles.inputWrapper}>
@@ -322,49 +261,31 @@ const handleSubmit = async () => {
                     onChangeText={setConfirmPassword}
                     secureTextEntry={!showConfirmPassword}
                     returnKeyType="done"
-                    required
                   />
-                  <TouchableOpacity
-                    style={styles.eyeButton}
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff size={wp(4.5)} color="#9ca3af" />
-                    ) : (
-                      <Eye size={wp(4.5)} color="#9ca3af" />
-                    )}
+                  <TouchableOpacity style={styles.eyeButton} onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                    {showConfirmPassword ? <EyeOff size={wp(4.5)} color="#9ca3af" /> : <Eye size={wp(4.5)} color="#9ca3af" />}
                   </TouchableOpacity>
                 </View>
               </View>
 
-              {/* Terms and Conditions */}
+              {/* Terms */}
               <View style={styles.termsContainer}>
                 <TouchableOpacity
-                  style={[
-                    styles.checkbox,
-                    agreeToTerms && styles.checkboxChecked,
-                  ]}
+                  style={[styles.checkbox, agreeToTerms && styles.checkboxChecked]}
                   onPress={() => setAgreeToTerms(!agreeToTerms)}
                 >
                   {agreeToTerms && <View style={styles.checkboxInner} />}
                 </TouchableOpacity>
                 <Text style={styles.termsText}>
                   I agree to the{' '}
-                  <Text style={styles.link} onPress={onTermsClick}>
-                    Terms and Conditions
-                  </Text>{' '}
-                  and{' '}
-                  <Text style={styles.link} onPress={onPrivacyClick}>
-                    Privacy Policy
-                  </Text>
+                  <Text style={styles.link} onPress={onTermsClick}>Terms and Conditions</Text>
+                  {' '}and{' '}
+                  <Text style={styles.link} onPress={onPrivacyClick}>Privacy Policy</Text>
                 </Text>
               </View>
-              
+
               <TouchableOpacity
-                style={[
-                  styles.submitButton,
-                  (!agreeToTerms || isLoading) && styles.submitButtonDisabled,
-                ]}
+                style={[styles.submitButton, (!agreeToTerms || isLoading) && styles.submitButtonDisabled]}
                 onPress={handleSubmit}
                 disabled={!agreeToTerms || isLoading}
               >
@@ -372,15 +293,12 @@ const handleSubmit = async () => {
                   {isLoading ? "Creating account..." : "Create Account"}
                 </Text>
               </TouchableOpacity>
-
             </View>
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>
                 Already have an account?{' '}
-                <Text style={styles.footerLink} onPress={onLoginClick}>
-                  Sign In
-                </Text>
+                <Text style={styles.footerLink} onPress={onLoginClick}>Sign In</Text>
               </Text>
             </View>
           </ScrollView>
@@ -496,6 +414,12 @@ const styles = StyleSheet.create({
     fontSize: wp(3.8), // Slightly smaller
     backgroundColor: '#f9fafb',
     color: '#1f2937',
+  },
+  emailHint: {
+    fontSize: wp(3.2),
+    color: '#6b7280',
+    marginTop: 4,
+    marginLeft: 12,
   },
   passwordInput: {
     paddingRight: wp(9), // Reduced padding

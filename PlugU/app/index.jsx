@@ -9,7 +9,7 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <ImageBackground
+    <ImageBackground  
       source={require("..//assets/images/bg.jpg")} 
       style={styles.background}
       resizeMode="cover"

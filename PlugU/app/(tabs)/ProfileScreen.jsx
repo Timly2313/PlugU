@@ -39,7 +39,7 @@ const EmptyListingsState = () => (
 );
 
 export default function ProfileScreen() {
-  const { profile, logout } = useAuth();
+  const { profile, signOut } = useAuth();
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
@@ -68,7 +68,7 @@ export default function ProfileScreen() {
 
 
   const onLogout = async () => {
-    await logout();
+    await signOut();
     router.replace("/LoginScreen");
   };
 
@@ -249,9 +249,9 @@ export default function ProfileScreen() {
         >
           {/* Banner Section (now scrollable) */}
           <View style={styles.bannerSection}>
-            {profile?.banner_url ? (
+            {profile?.cover_image_url ? (
           <Image
-              source={{ uri: profile.banner_url }}
+              source={{ uri: profile.cover_image_url }}
               style={styles.banner}
             />
           ) : (
@@ -277,7 +277,7 @@ export default function ProfileScreen() {
                 />
               ) : (
                 <Text style={styles.avatarText}>
-                  {profile?.full_name?.charAt(0)?.toUpperCase() ?? "U"}
+                  {profile?.display_name?.charAt(0)?.toUpperCase() ?? "U"}
                 </Text>
               )}
             </View>
@@ -288,14 +288,14 @@ export default function ProfileScreen() {
           {/* User Info */}
           <View style={styles.userInfo}>
             <Text style={styles.userName}>
-              {profile?.full_name || "User"}
+              {profile?.display_name || "User"}
             </Text>
             <Text
               style={styles.description}
               numberOfLines={3}
               ellipsizeMode="tail"
             >
-              {profile?.description || "No description yet"}
+              {profile?.bio || "No description yet"}
             </Text>
 
 

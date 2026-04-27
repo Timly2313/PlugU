@@ -1,0 +1,245 @@
+You are a senior backend engineer specializing in Supabase, PostgreSQL, and scalable social + marketplace systems.
+
+I am building a hybrid SOCIAL MEDIA + MARKETPLACE app called "PlugU".
+
+You must generate a FULLY FUNCTIONAL production-ready Supabase backend including:
+
+1. DATABASE DESIGN (PostgreSQL)
+2. ROW LEVEL SECURITY (RLS)
+3. TRIGGERS + FUNCTIONS
+4. EDGE FUNCTIONS (TypeScript - Deno)
+5. REALTIME SETUP
+6. STORAGE BUCKETS
+7. ROW LEVEL SECURITY FOR BUCKETS (RLS)
+8. AUTH FLOW INTEGRATION
+ 
+
+The system must scale to:
+- 10K+ users initially
+- Millions of listings long-term
+
+---
+
+
+### 4. CORE FEATURES
+
+## 🧑‍🤝‍🧑 SOCIAL realtime
+- Create posts
+- Like posts
+- Comment (nested replies)
+- Follow users
+- Notifications
+
+## 🛒 MARKETPLACE
+- Create listings
+- View listings
+- Search listings by:
+- keyword
+- category
+- location (distance-based)
+- price range
+
+- View:
+- your listings separately
+- other users' listings as home feed
+
+---
+
+### 5. LOCATION-BASED FEATURES
+- Store coordinates using:POINT or PostGIS 
+- Must support:
+- nearby listings (radius search)
+- nearby users
+- geo-indexing
+
+---
+
+### 6. ANALYTICS
+- Track:
+- listing views
+- profile views
+- post engagement
+- search keywords
+
+---
+
+### 7. MESSAGING SYSTEM
+- Conversations
+- Messages
+- Unread counts
+- Realtime updates
+
+---
+
+### 8. NOTIFICATIONS SYSTEM
+- Likes
+- Comments
+- Follows
+- Messages
+- Listings
+
+---
+
+### 8 REVIEW LISTINGS
+- REVIEW A LISTING AFTER BUYING
+
+# 🚀 EDGE FUNCTIONS (CRITICAL)
+
+Create ALL necessary Supabase Edge Functions:
+
+### AUTH / USER
+- `handle_new_user.ts`
+→ runs after signup
+→ inserts into profiles
+
+---
+
+### MARKETPLACE
+- `search_listings.ts`
+→ advanced filtering + geo search
+
+- `create_listing.ts`
+→ validates + inserts listing
+
+- `track_listing_view.ts`
+→ increments view_count
+
+---
+
+### SOCIAL
+- `create_post.ts`
+- `like_post.ts`
+- `comment_post.ts`
+
+---
+
+### MESSAGING
+- `send_message.ts`
+- `get_conversations.ts`
+
+---
+
+### NOTIFICATIONS
+- `send_notification.ts`
+- `mark_notifications_read.ts`
+
+---
+
+### ANALYTICS
+- `track_profile_view.ts`
+- `track_search.ts`
+
+---
+
+
+### 8 REVIEW LISTINGS
+- `review_listing`
+
+Critical all posts and listings to be moderated by Open Ai ...both text and images for violance, nudity and then are approved for viewing
+
+# 🔐 SECURITY
+
+- Enforce strict RLS:
+- users can only modify their own data
+- public read access where necessary
+- Use: auth.uid()- Protect ALL edge functions
+
+---
+
+# 📦 STORAGE
+
+Create buckets:
+- avatars
+- post-media
+- listing-images
+
+Add policies:
+- users can upload their own files
+- public read URLs
+
+---
+
+# ⚡ REALTIME
+
+Enable realtime for:
+- messages
+- notifications
+- posts
+- listings
+
+---
+
+# 🧠 RPC FUNCTIONS
+
+Create advanced SQL RPCs:
+- get_feed()
+- search_listings()
+- get_user_profile_with_stats()
+- get_nearby_listings()
+- get_conversation_messages()
+
+---
+
+# 📱 FRONTEND (IMPORTANT)
+
+Provide React Native (Expo) examples for:
+
+## LOCATION UPDATE
+- call RPC or edge function
+
+## POSTS
+- create post
+- fetch feed
+
+## LISTINGS
+- create listing
+- search listings
+
+## MESSAGING
+- send message
+- realtime subscription
+
+## NOTIFICATIONS
+- fetch notifications
+- mark as read
+
+---
+
+# 📁 OUTPUT STRUCTURE
+
+Return everything organized like:
+
+/supabase
+/migrations
+/functions
+/policies
+/seed
+/types
+
+/frontend-examples
+auth.js
+posts.js
+listings.js
+messaging.js
+
+---
+
+# ⚠️ IMPORTANT RULES
+
+- Use production-level best practices
+- Use efficient indexing
+- Use JSONB where needed
+- Use transactions where needed
+- Avoid redundant queries
+- Make everything scalable and clean
+
+---
+
+# 🎯 GOAL
+
+When I copy your output into Supabase:
+👉 I should get a COMPLETE backend
+👉 With ZERO missing parts
+👉 Ready to connect to my React Native app
+
+Generate EVERYTHING now. REFERANCE THE SQL THAT I UPLOADED FOR TABLES 

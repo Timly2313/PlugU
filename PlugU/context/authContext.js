@@ -1,165 +1,189 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import * as Location from "expo-location";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
+  const [profile, setProfile] = useState(null);
   const [state, setState] = useState({
     user: null,
     session: null,
     isLoading: true,
+    isProfileLoading: true,
     isAuthenticated: false,
   });
 
-  const [locationState, setLocationState] = useState({
-    permission: "unknown", // "granted" | "denied"
-    coords: null,
-  });
+  // Use a ref to always have access to the latest user id without stale closure
+  const currentUserIdRef = useRef(null);
 
-  /* ------------------------------------------------ */
-  /* 📍 GET USER LOCATION */
-  /* ------------------------------------------------ */
-  const requestLocationPermission = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
+  // Fetch profile from DB
+  const fetchProfile = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
 
-    if (status !== "granted") {
-      setLocationState({
-        permission: "denied",
-        coords: null,
-      });
-      return false;
+      if (error) {
+        console.log("Profile fetch error:", error.message);
+        return null;
+      }
+
+      setProfile(data);
+      return data;
+    } catch (err) {
+      console.log("Unexpected profile fetch error:", err.message);
+      return null;
+    } finally {
+      setState((prev) => ({ ...prev, isProfileLoading: false }));
     }
-
-    const location = await Location.getCurrentPositionAsync({});
-
-    setLocationState({
-      permission: "granted",
-      coords: location.coords,
-    });
-
-    return true;
   };
 
-  /* ------------------------------------------------ */
-  /* 🔐 SESSION HANDLING */
-  /* ------------------------------------------------ */
+  // Update profile for current user
+  const updateProfile = async (updates) => {
+    if (!currentUserIdRef.current) throw new Error("No user logged in");
+
+    setState((prev) => ({ ...prev, isLoading: true }));
+
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("id", currentUserIdRef.current)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setProfile(data);
+      return { data, error: null };
+    } catch (error) {
+      console.error("Update profile error:", error);
+      return { data: null, error };
+    } finally {
+      setState((prev) => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  // Refresh current profile
+  const refreshProfile = async () => {
+    if (currentUserIdRef.current) {
+      await fetchProfile(currentUserIdRef.current);
+    }
+  };
+
+  // Load session and profile on mount
   useEffect(() => {
     const initializeApp = async () => {
-      // Restore session
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
+      try {
+        const { data, error } = await supabase.auth.getSession();
 
-      setState((prev) => ({
-        ...prev,
-        session,
-        user: session?.user || null,
-        isAuthenticated: !!session,
-        isLoading: false,
-      }));
+        if (error) console.log("Session error:", error.message);
 
-      // Ask for location immediately
-      await requestLocationPermission();
+        const session = data?.session;
+        const userId = session?.user?.id || null;
+
+        currentUserIdRef.current = userId;
+
+        setState({
+          session,
+          user: session?.user || null,
+          isAuthenticated: !!session,
+          isLoading: false,
+          isProfileLoading: !!session,
+        });
+
+        if (session?.user) {
+          await fetchProfile(session.user.id);
+        }
+      } catch (err) {
+        console.log("Init error:", err.message);
+        setState((prev) => ({ ...prev, isLoading: false, isProfileLoading: false }));
+      }
     };
 
     initializeApp();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const incomingUserId = session?.user?.id || null;
+      const isSameUser = incomingUserId && incomingUserId === currentUserIdRef.current;
+
+      currentUserIdRef.current = incomingUserId;
+
       setState((prev) => ({
         ...prev,
         session,
         user: session?.user || null,
         isAuthenticated: !!session,
         isLoading: false,
+        // Don't reset isProfileLoading if it's the same user — profile already in memory
+        isProfileLoading: !!session && !isSameUser,
       }));
+
+      if (session?.user) {
+        // Only re-fetch profile if it's a different user
+        if (!isSameUser) {
+          await fetchProfile(session.user.id);
+        }
+      } else {
+        setProfile(null);
+        setState((prev) => ({ ...prev, isProfileLoading: false }));
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
-  /* ------------------------------------------------ */
-  /* 📍 UPDATE LOCATION AFTER LOGIN */
-  /* ------------------------------------------------ */
-  useEffect(() => {
-    if (!state.isAuthenticated) return;
 
-    const updateLocation = async () => {
-      try {
-        const coords = await getUserLocation();
-
-        await supabase.rpc("update_user_location", {
-          lat: coords.latitude,
-          lng: coords.longitude,
-        });
-      } catch (err) {
-        console.log("Location update failed:", err.message);
-      }
-    };
-
-    updateLocation();
-  }, [state.isAuthenticated]);
-
-  /* ------------------------------------------------ */
-  /* 🔓 SIGN IN */
-  /* ------------------------------------------------ */
-  const signIn = async (credentials) => {
+  // Sign in
+  const signIn = async ({ email, password }) => {
     setState((prev) => ({ ...prev, isLoading: true }));
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: credentials.email,
-      password: credentials.password,
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
 
     setState((prev) => ({ ...prev, isLoading: false }));
 
     if (error) throw error;
+
+    return data;
   };
 
-  /* ------------------------------------------------ */
-  /* 🆕 SIGN UP (WITH LOCATION METADATA) */
-  /* ------------------------------------------------ */
-  const signUp = async (credentials) => {
-    if (locationState.permission !== "granted") {
-      throw new Error("Location permission is required to use PlugU.");
-    }
-
-    if (!locationState.coords) {
-      throw new Error("Unable to get your location. Please try again.");
-    }
-
+  // Sign up
+  const signUp = async ({ email, password, fullName }) => {
     setState((prev) => ({ ...prev, isLoading: true }));
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email: credentials.email,
-        password: credentials.password,
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
         options: {
           data: {
-            full_name: credentials.fullName,
-            username: credentials.email.split("@")[0],
-            latitude: locationState.coords.latitude,
-            longitude: locationState.coords.longitude,
+            full_name: fullName,
+            username: email.split("@")[0],
           },
         },
       });
 
       if (error) throw error;
+
+      return data;
     } finally {
       setState((prev) => ({ ...prev, isLoading: false }));
     }
   };
-  /* ------------------------------------------------ */
-  /* 🚪 SIGN OUT */
-  /* ------------------------------------------------ */
-  const signOutUser = async () => {
+
+  // Sign out
+  const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };
 
-  /* ------------------------------------------------ */
-  /* 🔑 PASSWORD RESET */
-  /* ------------------------------------------------ */
+  // Password reset
   const resetPassword = async (email) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: "plugu://reset-password",
@@ -169,10 +193,7 @@ export function AuthProvider({ children }) {
   };
 
   const updatePassword = async (password) => {
-    const { error } = await supabase.auth.updateUser({
-      password,
-    });
-
+    const { error } = await supabase.auth.updateUser({ password });
     if (error) throw error;
   };
 
@@ -196,10 +217,13 @@ export function AuthProvider({ children }) {
         ...state,
         signIn,
         signUp,
-        signOut: signOutUser,
+        signOut,
         resetPassword,
         updatePassword,
         refreshSession,
+        profile,
+        updateProfile,
+        refreshProfile,
       }}
     >
       {children}
