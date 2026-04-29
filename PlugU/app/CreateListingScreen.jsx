@@ -272,7 +272,7 @@ export default function CreateListingScreen() {
                 <View style={styles.locationRow}>
                   <TextInput
                     style={[styles.input, { flex: 1 }]}
-                    placeholder="City, Province"
+                    placeholder="Suburb, City"
                     value={location}
                     onChangeText={(text) => {
                       setLocation(text);

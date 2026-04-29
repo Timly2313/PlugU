@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -13,15 +13,13 @@ import {
   RefreshControl,
   Animated,
 } from "react-native";
-import { Search, SlidersHorizontal, Package, X } from "lucide-react-native";
+import { Search, SlidersHorizontal, Package, X, MapPin } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import ScreenWrapper from "../../components/ScreenWrapper";
 import { hp, wp } from "../../utilities/dimensions";
 import ListingCard from "../../components/ListingCard";
 import { useAuth } from "../../context/authContext";
-import { supabase } from "../../lib/supabase";
-
-const LIMIT = 20;
+import { useMarketListings } from "../../hooks/useMarketListings";
 
 const CATEGORIES = [
   { label: "All", value: null },
@@ -34,6 +32,15 @@ const CATEGORIES = [
   { label: "Other", value: "other" },
 ];
 
+const RADIUS_OPTIONS = [
+  { label: "Any", value: null },
+  { label: "5 km", value: 5 },
+  { label: "10 km", value: 10 },
+  { label: "25 km", value: 25 },
+  { label: "50 km", value: 50 },
+  { label: "100 km", value: 100 },
+];
+
 export default function MarketScreen() {
   const { profile } = useAuth();
   const router = useRouter();
@@ -42,11 +49,6 @@ export default function MarketScreen() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [likedListings, setLikedListings] = useState(new Set());
-  const [listings, setListings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
   const [filters, setFilters] = useState({
     category: null,
     minPrice: "",
@@ -71,69 +73,28 @@ export default function MarketScreen() {
     }).start();
   }, [showFilters]);
 
-  const fetchListings = useCallback(
-    async (isRefresh = false) => {
-      if (!profile?.id) return;
+  // ── TanStack infinite query — reads from MMKV cache on repeat visits
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+    isRefetching,
+  } = useMarketListings({
+    userId: profile?.id,
+    query: debouncedQuery,
+    category: filters.category,
+    minPrice: filters.minPrice,
+    maxPrice: filters.maxPrice,
+    radiusKm: filters.radiusKm,
+  });
 
-      const currentOffset = isRefresh ? 0 : offset;
+  const listings = useMemo(() => data?.pages.flat() ?? [], [data]);
 
-      if (isRefresh) {
-        setRefreshing(true);
-      } else if (currentOffset === 0) {
-        setLoading(true);
-      }
-
-      try {
-        const { data, error } = await supabase.rpc("get_market_feed", {
-          p_user_id: profile.id,
-          p_query: debouncedQuery || null,
-          p_category: filters.category || null,
-          p_min_price: filters.minPrice ? parseFloat(filters.minPrice) : null,
-          p_max_price: filters.maxPrice ? parseFloat(filters.maxPrice) : null,
-          p_latitude: null,
-          p_longitude: null,
-          p_radius_km: filters.radiusKm || null,
-          p_limit: LIMIT,
-          p_offset: currentOffset,
-        });
-
-        if (error) throw error;
-
-        const results = data || [];
-
-        if (isRefresh || currentOffset === 0) {
-          setListings(results);
-        } else {
-          setListings((prev) => [...prev, ...results]);
-        }
-
-        setHasMore(results.length === LIMIT);
-      } catch (err) {
-        console.error("Failed to load listings:", err);
-        if (isRefresh || currentOffset === 0) setListings([]);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [profile?.id, debouncedQuery, filters, offset]
-  );
-
-  // Reset and refetch when filters or search change
-  useEffect(() => {
-    setOffset(0);
-    setListings([]);
-    fetchListings(true);
-  }, [debouncedQuery, filters]);
-
-  // Fetch more when offset increases
-  useEffect(() => {
-    if (offset > 0) fetchListings(false);
-  }, [offset]);
-
-  const loadMore = () => {
-    if (!hasMore || loading || refreshing) return;
-    setOffset((prev) => prev + LIMIT);
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
   };
 
   const toggleLike = (listingId) => {
@@ -159,7 +120,7 @@ export default function MarketScreen() {
 
   const filterHeight = filterAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, hp(30)],
+    outputRange: [0, hp(34)],
   });
 
   return (
@@ -171,20 +132,20 @@ export default function MarketScreen() {
         <View style={styles.stickyHeader}>
           <View style={styles.topBar}>
             <View>
-              <Text style={styles.greeting}>
-                Hi, {profile?.username || "there"} 
-              </Text>
+              <Text style={styles.greeting}>Hi, {profile?.username || "there"} </Text>
               <Text style={styles.subtitle}>What are you looking for?</Text>
             </View>
-            {profile?.avatar_url ? (
-              <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarFallback}>
-                <Text style={styles.avatarInitial}>
-                  {(profile?.username?.[0] || "U").toUpperCase()}
-                </Text>
-              </View>
-            )}
+            <TouchableOpacity onPress={() => router.push("/(tabs)/ProfileScreen")} activeOpacity={0.8}>
+              {profile?.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarFallback}>
+                  <Text style={styles.avatarInitial}>
+                    {(profile?.username?.[0] || "U").toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
 
           {/* Search */}
@@ -207,37 +168,29 @@ export default function MarketScreen() {
             </View>
             <TouchableOpacity
               style={[styles.filterButton, showFilters && styles.filterButtonActive]}
-              onPress={() => setShowFilters(!showFilters)}
+              onPress={() => setShowFilters((v) => !v)}
             >
-              <SlidersHorizontal
-                size={wp(4)}
-                color={showFilters ? "white" : "#374151"}
-              />
+              <SlidersHorizontal size={wp(4)} color={showFilters ? "white" : "#374151"} />
+              {hasActiveFilters && !showFilters && <View style={styles.filterDot} />}
             </TouchableOpacity>
           </View>
 
           {/* Category chips */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryChips}
-          >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryChips}>
             {CATEGORIES.map((cat) => (
               <TouchableOpacity
                 key={cat.label}
                 style={[styles.chip, filters.category === cat.value && styles.chipActive]}
                 onPress={() => setFilters((prev) => ({ ...prev, category: cat.value }))}
               >
-                <Text
-                  style={[styles.chipText, filters.category === cat.value && styles.chipTextActive]}
-                >
+                <Text style={[styles.chipText, filters.category === cat.value && styles.chipTextActive]}>
                   {cat.label}
                 </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
 
-          {/* Expandable filter panel */}
+          {/* Filter panel */}
           <Animated.View style={[styles.filterPanel, { height: filterHeight }]}>
             <View style={styles.filterPanelInner}>
               <Text style={styles.filterLabel}>Price Range (R)</Text>
@@ -261,17 +214,23 @@ export default function MarketScreen() {
                 />
               </View>
 
-              <Text style={[styles.filterLabel, { marginTop: hp(1.5) }]}>Radius (km)</Text>
-              <TextInput
-                style={[styles.priceInput, { width: "50%" }]}
-                placeholder="e.g. 10"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="numeric"
-                value={filters.radiusKm ? String(filters.radiusKm) : ""}
-                onChangeText={(v) =>
-                  setFilters((prev) => ({ ...prev, radiusKm: v ? parseFloat(v) : null }))
-                }
-              />
+              <View style={styles.radiusHeader}>
+                <MapPin size={wp(3.5)} color="#374151" />
+                <Text style={styles.filterLabel}>Radius</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.radiusChips}>
+                {RADIUS_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={String(opt.value)}
+                    style={[styles.radiusChip, filters.radiusKm === opt.value && styles.radiusChipActive]}
+                    onPress={() => setFilters((prev) => ({ ...prev, radiusKm: opt.value }))}
+                  >
+                    <Text style={[styles.radiusChipText, filters.radiusKm === opt.value && styles.radiusChipTextActive]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
 
               {hasActiveFilters && (
                 <TouchableOpacity style={styles.clearBtn} onPress={clearFilters}>
@@ -283,7 +242,7 @@ export default function MarketScreen() {
         </View>
 
         {/* ── Content ── */}
-        {loading && listings.length === 0 ? (
+        {isLoading && listings.length === 0 ? (
           <View style={styles.centeredState}>
             <ActivityIndicator size="large" color="#3F51B5" />
             <Text style={styles.stateText}>Finding listings...</Text>
@@ -291,22 +250,14 @@ export default function MarketScreen() {
         ) : listings.length === 0 ? (
           <ScrollView
             contentContainerStyle={styles.centeredState}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => fetchListings(true)}
-                tintColor="#3F51B5"
-              />
-            }
+            refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#3F51B5" />}
           >
             <View style={styles.emptyIconWrap}>
               <Package size={wp(14)} color="#C7D2FE" />
             </View>
             <Text style={styles.emptyTitle}>No listings found</Text>
             <Text style={styles.emptySubtitle}>
-              {hasActiveFilters
-                ? "Try adjusting your filters or search term"
-                : "No listings available right now"}
+              {hasActiveFilters ? "Try adjusting your filters or search term" : "Pull down to refresh"}
             </Text>
             {hasActiveFilters && (
               <TouchableOpacity style={styles.clearFiltersBtn} onPress={clearFilters}>
@@ -322,17 +273,11 @@ export default function MarketScreen() {
             contentContainerStyle={styles.grid}
             columnWrapperStyle={styles.columnWrapper}
             showsVerticalScrollIndicator={false}
-            onEndReached={loadMore}
+            onEndReached={handleLoadMore}
             onEndReachedThreshold={0.5}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => fetchListings(true)}
-                tintColor="#3F51B5"
-              />
-            }
+            refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#3F51B5" />}
             ListFooterComponent={
-              hasMore && !refreshing ? (
+              isFetchingNextPage ? (
                 <View style={styles.footerLoader}>
                   <ActivityIndicator size="small" color="#3F51B5" />
                 </View>
@@ -364,201 +309,68 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#F0F0F0",
   },
-  topBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: hp(1.5),
-  },
-  greeting: {
-    fontSize: wp(5),
-    fontWeight: "700",
-    color: "#111827",
-  },
-  subtitle: {
-    fontSize: wp(3.5),
-    color: "#6B7280",
-    marginTop: hp(0.3),
-  },
-  avatar: {
-    width: wp(11),
-    height: wp(11),
-    borderRadius: wp(5.5),
-  },
+  topBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: hp(1.5) },
+  greeting: { fontSize: wp(5), fontWeight: "700", color: "#111827" },
+  subtitle: { fontSize: wp(3.5), color: "#6B7280", marginTop: hp(0.3) },
+  avatar: { width: wp(11), height: wp(11), borderRadius: wp(5.5), borderWidth: 2, borderColor: "#E0E7FF" },
   avatarFallback: {
-    width: wp(11),
-    height: wp(11),
-    borderRadius: wp(5.5),
-    backgroundColor: "#E0E7FF",
-    alignItems: "center",
-    justifyContent: "center",
+    width: wp(11), height: wp(11), borderRadius: wp(5.5),
+    backgroundColor: "#E0E7FF", alignItems: "center", justifyContent: "center",
+    borderWidth: 2, borderColor: "#C7D2FE",
   },
-  avatarInitial: {
-    fontSize: wp(5),
-    fontWeight: "700",
-    color: "#3F51B5",
-  },
-  searchRow: {
-    flexDirection: "row",
-    gap: wp(2),
-    marginBottom: hp(1.2),
-  },
+  avatarInitial: { fontSize: wp(5), fontWeight: "700", color: "#3F51B5" },
+  searchRow: { flexDirection: "row", gap: wp(2), marginBottom: hp(1.2) },
   searchInputContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "white",
-    borderRadius: wp(50),
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    paddingHorizontal: wp(4),
-    gap: wp(2),
+    flex: 1, flexDirection: "row", alignItems: "center",
+    backgroundColor: "white", borderRadius: wp(50),
+    borderWidth: 1, borderColor: "#E5E7EB", paddingHorizontal: wp(4), gap: wp(2),
   },
-  searchInput: {
-    flex: 1,
-    paddingVertical: hp(1.2),
-    fontSize: wp(3.5),
-    color: "#111827",
-  },
+  searchInput: { flex: 1, paddingVertical: hp(1.2), fontSize: wp(3.5), color: "#111827" },
   filterButton: {
-    width: wp(11),
-    height: wp(11),
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: wp(5.5),
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    backgroundColor: "white",
+    width: wp(11), height: wp(11), justifyContent: "center", alignItems: "center",
+    borderRadius: wp(5.5), borderWidth: 1, borderColor: "#E5E7EB", backgroundColor: "white",
   },
-  filterButtonActive: {
-    backgroundColor: "#3F51B5",
-    borderColor: "#3F51B5",
+  filterButtonActive: { backgroundColor: "#3F51B5", borderColor: "#3F51B5" },
+  filterDot: {
+    position: "absolute", top: wp(1.5), right: wp(1.5),
+    width: wp(2.2), height: wp(2.2), borderRadius: wp(1.1),
+    backgroundColor: "#EF4444", borderWidth: 1.5, borderColor: "white",
   },
-  categoryChips: {
-    flexDirection: "row",
-    gap: wp(2),
-    paddingVertical: hp(0.5),
-  },
-  chip: {
-    paddingHorizontal: wp(4),
-    paddingVertical: hp(0.8),
-    borderRadius: wp(50),
-    backgroundColor: "white",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  chipActive: {
-    backgroundColor: "#3F51B5",
-    borderColor: "#3F51B5",
-  },
-  chipText: {
-    fontSize: wp(3.2),
-    color: "#6B7280",
-    fontWeight: "500",
-  },
-  chipTextActive: {
-    color: "white",
-  },
-  filterPanel: {
-    overflow: "hidden",
-  },
-  filterPanelInner: {
-    paddingTop: hp(1.5),
-  },
-  filterLabel: {
-    fontSize: wp(3.5),
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: hp(1),
-  },
-  priceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: wp(2),
-  },
+  categoryChips: { flexDirection: "row", gap: wp(2), paddingVertical: hp(0.5) },
+  chip: { paddingHorizontal: wp(4), paddingVertical: hp(0.8), borderRadius: wp(50), backgroundColor: "white", borderWidth: 1, borderColor: "#E5E7EB" },
+  chipActive: { backgroundColor: "#3F51B5", borderColor: "#3F51B5" },
+  chipText: { fontSize: wp(3.2), color: "#6B7280", fontWeight: "500" },
+  chipTextActive: { color: "white" },
+  filterPanel: { overflow: "hidden" },
+  filterPanelInner: { paddingTop: hp(1.5) },
+  filterLabel: { fontSize: wp(3.5), fontWeight: "600", color: "#374151", marginBottom: hp(1) },
+  priceRow: { flexDirection: "row", alignItems: "center", gap: wp(2), marginBottom: hp(1.5) },
   priceInput: {
-    flex: 1,
-    backgroundColor: "white",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: wp(3),
-    paddingHorizontal: wp(3),
-    paddingVertical: hp(1),
-    fontSize: wp(3.5),
-    color: "#111827",
+    flex: 1, backgroundColor: "white", borderWidth: 1, borderColor: "#E5E7EB",
+    borderRadius: wp(3), paddingHorizontal: wp(3), paddingVertical: hp(1),
+    fontSize: wp(3.5), color: "#111827",
   },
-  priceDivider: {
-    width: wp(4),
-    height: 1,
-    backgroundColor: "#D1D5DB",
-  },
-  clearBtn: {
-    marginTop: hp(1.2),
-    alignSelf: "flex-start",
-  },
-  clearBtnText: {
-    fontSize: wp(3.5),
-    color: "#EF4444",
-    fontWeight: "500",
-  },
-  grid: {
-    padding: wp(3),
-    paddingBottom: hp(10),
-  },
-  columnWrapper: {
-    gap: wp(3),
-    marginBottom: hp(1.5),
-  },
-  cardWrapper: {
-    flex: 1,
-  },
-  centeredState: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingBottom: hp(10),
-  },
-  stateText: {
-    marginTop: hp(1.5),
-    fontSize: wp(3.8),
-    color: "#9CA3AF",
-  },
+  priceDivider: { width: wp(4), height: 1, backgroundColor: "#D1D5DB" },
+  radiusHeader: { flexDirection: "row", alignItems: "center", gap: wp(1.5), marginBottom: hp(1) },
+  radiusChips: { flexDirection: "row", gap: wp(2), paddingBottom: hp(0.5) },
+  radiusChip: { paddingHorizontal: wp(3.5), paddingVertical: hp(0.8), borderRadius: wp(50), backgroundColor: "white", borderWidth: 1, borderColor: "#E5E7EB" },
+  radiusChipActive: { backgroundColor: "#EEF2FF", borderColor: "#3F51B5" },
+  radiusChipText: { fontSize: wp(3.2), color: "#6B7280", fontWeight: "500" },
+  radiusChipTextActive: { color: "#3F51B5", fontWeight: "600" },
+  clearBtn: { marginTop: hp(1.2), alignSelf: "flex-start" },
+  clearBtnText: { fontSize: wp(3.5), color: "#EF4444", fontWeight: "500" },
+  grid: { padding: wp(3), paddingBottom: hp(10) },
+  columnWrapper: { gap: wp(3), marginBottom: hp(1.5) },
+  cardWrapper: { flex: 1 },
+  centeredState: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: hp(10) },
+  stateText: { marginTop: hp(1.5), fontSize: wp(3.8), color: "#9CA3AF" },
   emptyIconWrap: {
-    width: wp(24),
-    height: wp(24),
-    borderRadius: wp(12),
-    backgroundColor: "#EEF2FF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: hp(2),
+    width: wp(24), height: wp(24), borderRadius: wp(12),
+    backgroundColor: "#EEF2FF", alignItems: "center", justifyContent: "center", marginBottom: hp(2),
   },
-  emptyTitle: {
-    fontSize: wp(4.5),
-    fontWeight: "700",
-    color: "#374151",
-    marginBottom: hp(0.8),
-  },
-  emptySubtitle: {
-    fontSize: wp(3.5),
-    color: "#9CA3AF",
-    textAlign: "center",
-    paddingHorizontal: wp(10),
-    lineHeight: wp(5.5),
-  },
-  clearFiltersBtn: {
-    marginTop: hp(2),
-    backgroundColor: "#EEF2FF",
-    paddingHorizontal: wp(6),
-    paddingVertical: hp(1.2),
-    borderRadius: wp(50),
-  },
-  clearFiltersBtnText: {
-    color: "#3F51B5",
-    fontWeight: "600",
-    fontSize: wp(3.5),
-  },
-  footerLoader: {
-    paddingVertical: hp(2),
-    alignItems: "center",
-  },
+  emptyTitle: { fontSize: wp(4.5), fontWeight: "700", color: "#374151", marginBottom: hp(0.8) },
+  emptySubtitle: { fontSize: wp(3.5), color: "#9CA3AF", textAlign: "center", paddingHorizontal: wp(10), lineHeight: wp(5.5) },
+  clearFiltersBtn: { marginTop: hp(2), backgroundColor: "#EEF2FF", paddingHorizontal: wp(6), paddingVertical: hp(1.2), borderRadius: wp(50) },
+  clearFiltersBtnText: { color: "#3F51B5", fontWeight: "600", fontSize: wp(3.5) },
+  footerLoader: { paddingVertical: hp(2), alignItems: "center" },
 });

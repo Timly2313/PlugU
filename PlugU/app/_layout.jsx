@@ -2,18 +2,9 @@ import React, { useEffect } from "react";
 import { View, Text, ActivityIndicator } from "react-native";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { AuthProvider, useAuth } from "../context/authContext";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { queryClient, asyncPersister } from "../lib/queryClient"; // ← add asyncPersister
 import OnboardingScreen from "./OnboardingScreen";
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5,
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
 
 function AppContent() {
   const { isAuthenticated, isLoading, isProfileLoading, profile, refreshProfile } = useAuth();
@@ -26,19 +17,12 @@ function AppContent() {
     const inAuthGroup = segments[0] === "(tabs)";
 
     if (isAuthenticated && profile?.onboarding_completed) {
-      // Authenticated + onboarding done → push to home if not already there
-      if (!inAuthGroup) {
-        router.replace("/(tabs)/HomeScreen");
-      }
+      if (!inAuthGroup) router.replace("/(tabs)/HomeScreen");
     } else if (!isAuthenticated) {
-      // Not authenticated → push to login if not already on an auth screen
-      if (inAuthGroup) {
-        router.replace("/LoginScreen");
-      }
+      if (inAuthGroup) router.replace("/LoginScreen");
     }
   }, [isAuthenticated, isLoading, isProfileLoading, profile]);
 
-  // 1. Auth loading
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -48,12 +32,8 @@ function AppContent() {
     );
   }
 
-  // 2. Not authenticated → render auth screens (login/signup) via Slot
-  if (!isAuthenticated) {
-    return <Slot />;
-  }
+  if (!isAuthenticated) return <Slot />;
 
-  // 3. Authenticated but profile still loading
   if (isProfileLoading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -63,26 +43,27 @@ function AppContent() {
     );
   }
 
-  // 4. Onboarding not completed
   if (!profile?.onboarding_completed) {
-    return (
-      <OnboardingScreen
-        onComplete={refreshProfile}
-        onSkip={refreshProfile}
-      />
-    );
+    return <OnboardingScreen onComplete={refreshProfile} onSkip={refreshProfile} />;
   }
 
-  // 5. Fully ready → render main app
   return <Slot />;
 }
 
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister: asyncPersister,
+        maxAge: 24 * 60 * 60 * 1000,
+        buster: "", // bump to a new string (e.g. app version) to wipe cache on update
+      }}
+      onSuccess={() => console.log("[QueryCache] Restored from storage")}
+    >
       <AuthProvider>
         <AppContent />
       </AuthProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
