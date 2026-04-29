@@ -74,7 +74,7 @@ export default function CreateListingScreen() {
       const coords = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const { latitude: lat, longitude: lng } = coords.coords;
       const [place] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-      const locationString = [place.city, place.region].filter(Boolean).join(', ');
+      const locationString = [place.district, place.city].filter(Boolean).join(', ');
       setLatitude(lat);
       setLongitude(lng);
       setLocation(locationString || `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
@@ -125,7 +125,7 @@ export default function CreateListingScreen() {
         price: price ? Number(price) : undefined,
         currency: 'ZAR',
         category: category.trim(),
-        condition: condition.trim() || undefined,
+        condition: condition ? [condition] : null,
         images: mediaUrls,
         location: location.trim() || profile.location || undefined,
         latitude: latitude ?? undefined,
