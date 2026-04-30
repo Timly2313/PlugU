@@ -1,218 +1,94 @@
-import { supabase } from "../lib/supabase";
-import { uploadMediaToSupabase } from "../services/imageService";
-import {formatTimestamp} from "../utilities/timestamps"
-/* ---------------- Helpers ---------------- */
+import { supabase } from '../lib/supabase'; // adjust path to your supabase client
 
+/**
+ * Upload a single media file to Supabase Storage and return its public URL.
+ * Files land in the `posts` bucket under  <userId>/<timestamp>-<random>.<ext>
+ */
+async function uploadMediaItem(userId, item) {
+  const ext = item.uri.split('.').pop() ?? (item.type === 'image' ? 'jpg' : 'mp4');
+  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const storagePath = `${userId}/${filename}`;
 
+  const response = await fetch(item.uri);
+  const blob = await response.blob();
 
-const mapPost = post => {
-  const media = post.media_url ?? [];
+  const mimeType = item.type === 'image'
+    ? `image/${ext === 'jpg' ? 'jpeg' : ext}`
+    : `video/${ext}`;
 
-  const images = media.filter(url =>
-    /\.(jpg|jpeg|png|webp)$/i.test(url)
-  );
+  const { error: uploadError } = await supabase.storage
+    .from('posts')                    // ← your storage bucket name
+    .upload(storagePath, blob, { contentType: mimeType, upsert: false });
 
-  const videos = media.filter(url =>
-    /\.(mp4|mov|webm)$/i.test(url)
-  );
+  if (uploadError) throw new Error(`Media upload failed: ${uploadError.message}`);
+
+  const { data: urlData } = supabase.storage
+    .from('posts')
+    .getPublicUrl(storagePath);
 
   return {
-    id: post.id,
-    author: {
-      id:post.profiles?.id,
-      name: post.profiles?.full_name ?? "Unknown",
-      avatar: post.profiles?.avatar_url ?? null,
-    },
-    content: post.content,
-    images,
-    videos,
-    image: images[0] ?? null,
-    tags: post.post_tags?.map(t => t.tags.name) ?? [],
-    likes: 0,
-    comments: 0,
-    shares: 0,
-    timestamp: formatTimestamp(post.created_at),
-    isLiked: false,
+    url: urlData.publicUrl,
+    type: item.type,
+    path: storagePath,
   };
-};
+}
 
-/* ---------------- Create Post ---------------- */
+/**
+ * Resolve tag name strings to UUIDs from the `tags` table.
+ * Tags that don't exist are created on-the-fly via upsert.
+ */
+async function resolveTagIds(tagNames) {
+  if (tagNames.length === 0) return [];
 
-export const createPost = async ({
-  userId,
-  content,
-  media = [],
-  tags = [],
-}) => {
-  const mediaUrls = [];
+  const { data, error } = await supabase
+    .from('tags')                     // ← your tags table
+    .upsert(
+      tagNames.map((name) => ({ name: name.toLowerCase() })),
+      { onConflict: 'name', ignoreDuplicates: false }
+    )
+    .select('id');
 
-  for (const item of media) {
-    const publicUrl = await uploadMediaToSupabase(
-      item.uri,
-      userId,
-      "post-media",
-      item.type
+  if (error) throw new Error(`Tag resolution failed: ${error.message}`);
+  return (data ?? []).map((row) => row.id);
+}
+
+/**
+ * createPost
+ *
+ * 1. Uploads all media to Supabase Storage.
+ * 2. Resolves tag names → tag UUIDs.
+ * 3. Calls the `create-post` Edge Function with the assembled payload.
+ *
+ * Throws on any failure so the caller can surface the error to the user.
+ *
+ * @param {{ userId: string, content: string, media?: {uri: string, type: 'image'|'video'}[], tags?: string[], location?: string, latitude?: number, longitude?: number }} params
+ */
+export async function createPost({ userId, content, media = [], tags = [], location, latitude, longitude }) {
+  // Step 1 — upload media
+  let mediaUrls = [];
+  if (media.length > 0) {
+    mediaUrls = await Promise.all(
+      media.map((item) => uploadMediaItem(userId, item))
     );
-    mediaUrls.push(publicUrl);
   }
 
-  const { data: post, error } = await supabase
-    .from("posts")
-    .insert({
-      user_id: userId,
+  // Step 2 — resolve tags to UUIDs
+  const tagIds = await resolveTagIds(tags);
+
+  // Step 3 — call the Edge Function
+  const { data, error } = await supabase.functions.invoke('create-post', {
+    body: {
       content,
-      media_url: mediaUrls.length ? mediaUrls : null,
-    })
-    .select()
-    .single();
+      media_urls: mediaUrls,   // [{ url, type, path }]
+      tags: tagIds,             // [uuid, ...]
+      location,
+      latitude,
+      longitude,
+    },
+  });
 
-  if (error) throw error;
+  if (error) throw new Error(error.message ?? 'Failed to create post');
+  if (!data?.success) throw new Error(data?.error ?? 'Unknown error from create-post function');
 
-  for (const tag of tags) {
-    const { data: tagRow, error: tagError } = await supabase
-      .from("tags")
-      .upsert(
-        { name: tag.toLowerCase() },
-        { onConflict: "name" }
-      )
-      .select()
-      .single();
-
-    if (tagError) throw tagError;
-
-    const { error: linkError } = await supabase
-      .from("post_tags")
-      .insert({
-        post_id: post.id,
-        tag_id: tagRow.id,
-      });
-
-    if (linkError) throw linkError;
-  }
-
-  return post;
-};
-
-/* ---------------- Fetch Posts ---------------- */
-
-export const fetchPosts = async () => {
-  const { data, error } = await supabase
-    .from("posts")
-    .select(`
-      id,
-      content,
-      media_url,
-      created_at,
-      profiles (
-        id,
-        full_name,
-        avatar_url
-      ),
-      post_tags (
-        tags (
-          name
-        )
-      )
-    `)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-
-  return data.map(mapPost);
-};
-
-/* ---------------- Realtime ---------------- */
-
-export const subscribeToPosts = ({ onInsert, onDelete }) => {
-  const channel = supabase
-    .channel("posts-realtime")
-    .on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "posts" },
-      async payload => {
-        // 🔥 re-fetch full post so images + profile work
-        const { data } = await supabase
-          .from("posts")
-          .select(`
-            id,
-            content,
-            media_url,
-            created_at,
-            profiles (
-              id,
-              full_name,
-              avatar_url
-            ),
-            post_tags (
-              tags (
-                name
-              )
-            )
-          `)
-          .eq("id", payload.new.id)
-          .single();
-
-        if (data) onInsert?.(mapPost(data));
-      }
-    )
-    .on(
-      "postgres_changes",
-      { event: "DELETE", schema: "public", table: "posts" },
-      payload => onDelete?.(payload.old.id)
-    )
-    .subscribe();
-
-  return () => supabase.removeChannel(channel);
-};
-
-export const toggleLike = async (postId, userId) => {
-  const { data: existing } = await supabase
-    .from('post_likes')
-    .select('id')
-    .eq('post_id', postId)
-    .eq('user_id', userId)
-    .single();
-
-  if (existing) {
-    await supabase
-      .from('post_likes')
-      .delete()
-      .eq('id', existing.id);
-  } else {
-    await supabase
-      .from('post_likes')
-      .insert({ post_id: postId, user_id: userId });
-  }
-};
-
-export const fetchComments = async postId => {
-  const { data, error } = await supabase
-    .from('comments')
-    .select(`
-      id,
-      content,
-      created_at,
-      profiles (
-        id,
-        full_name,
-        avatar_url
-      )
-    `)
-    .eq('post_id', postId)
-    .order('created_at', { ascending: true });
-
-  if (error) throw error;
-  return data;
-};
-
-export const addComment = async (postId, content, userId) => {
-  const { error } = await supabase
-    .from('comments')
-    .insert({
-      post_id: postId,
-      user_id: userId,
-      content,
-    });
-
-  if (error) throw error;
-};
+  return data.post;
+}

@@ -30,6 +30,7 @@ import {
   Star,
   ChevronRight,
   PlusCircle,
+  X,
 } from "lucide-react-native";
 import { hp, wp } from "../../utilities/dimensions";
 import ScreenWrapper from "../../components/ScreenWrapper";
@@ -66,6 +67,33 @@ export default function ProfileScreen() {
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
 
+  // ── Full-screen image viewer ──
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [imageViewerUri, setImageViewerUri] = useState(null);
+  const imageViewerAnim = useRef(new Animated.Value(0)).current;
+
+  const openImageViewer = (uri) => {
+    if (!uri) return;
+    setImageViewerUri(uri);
+    setImageViewerVisible(true);
+    Animated.timing(imageViewerAnim, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeImageViewer = () => {
+    Animated.timing(imageViewerAnim, {
+      toValue: 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start(() => {
+      setImageViewerVisible(false);
+      setImageViewerUri(null);
+    });
+  };
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -78,7 +106,6 @@ export default function ProfileScreen() {
     try {
       setLoading(true);
 
-      // Fetch profile stats via RPC
       const { data: statsData } = await supabase
         .rpc("get_user_profile_with_stats", { p_user_id: profile.id });
 
@@ -86,7 +113,6 @@ export default function ProfileScreen() {
         setStats(statsData[0]);
       }
 
-      // Fetch own listings (all statuses)
       const { data: listingData } = await supabase
         .from("listings")
         .select("id, title, price, location, images, category, status, view_count, like_count")
@@ -217,7 +243,11 @@ export default function ProfileScreen() {
         contentContainerStyle={{ paddingBottom: hp(12) }}
       >
         {/* ── Banner ── */}
-        <View style={styles.bannerWrap}>
+        <TouchableOpacity
+          activeOpacity={profile?.cover_image_url ? 0.85 : 1}
+          onPress={() => openImageViewer(profile?.cover_image_url)}
+          style={styles.bannerWrap}
+        >
           {profile?.cover_image_url ? (
             <Image source={{ uri: profile.cover_image_url }} style={styles.banner} resizeMode="cover" />
           ) : (
@@ -226,14 +256,26 @@ export default function ProfileScreen() {
 
           {/* Header action buttons */}
           <View style={styles.headerBtns}>
-            <TouchableOpacity style={styles.headerBtn} onPress={() => router.push("/SettingsScreen")}>
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={(e) => {
+                e.stopPropagation?.();
+                router.push("/SettingsScreen");
+              }}
+            >
               <Settings size={wp(4.5)} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerBtn} onPress={onLogout}>
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={(e) => {
+                e.stopPropagation?.();
+                onLogout();
+              }}
+            >
               <LogOut size={wp(4.5)} color="white" />
             </TouchableOpacity>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* ── Profile card ── */}
         <Animated.View
@@ -242,8 +284,12 @@ export default function ProfileScreen() {
             { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
           ]}
         >
-          {/* Avatar overlapping banner */}
-          <View style={styles.avatarWrap}>
+          {/* Avatar overlapping banner — tappable */}
+          <TouchableOpacity
+            style={styles.avatarWrap}
+            activeOpacity={profile?.avatar_url ? 0.85 : 1}
+            onPress={() => openImageViewer(profile?.avatar_url)}
+          >
             {profile?.avatar_url ? (
               <Image source={{ uri: profile.avatar_url }} style={styles.avatarImg} />
             ) : (
@@ -251,7 +297,7 @@ export default function ProfileScreen() {
                 <Text style={styles.avatarInitial}>{avatarInitial}</Text>
               </View>
             )}
-          </View>
+          </TouchableOpacity>
 
           {/* Badges */}
           <View style={styles.badgesRow}>
@@ -435,6 +481,42 @@ export default function ProfileScreen() {
         </Animated.View>
       </ScrollView>
 
+      {/* ── Full-Screen Image Viewer ── */}
+      <Modal
+        visible={imageViewerVisible}
+        transparent
+        statusBarTranslucent
+        animationType="none"
+        onRequestClose={closeImageViewer}
+      >
+        <Animated.View
+          style={[
+            styles.imageViewerOverlay,
+            { opacity: imageViewerAnim },
+          ]}
+        >
+          {/* Close button */}
+          <TouchableOpacity style={styles.imageViewerClose} onPress={closeImageViewer}>
+            <X size={wp(5.5)} color="white" />
+          </TouchableOpacity>
+
+          {/* Image */}
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.imageViewerImgWrap}
+            onPress={closeImageViewer}
+          >
+            {imageViewerUri && (
+              <Image
+                source={{ uri: imageViewerUri }}
+                style={styles.imageViewerImg}
+                resizeMode="contain"
+              />
+            )}
+          </TouchableOpacity>
+        </Animated.View>
+      </Modal>
+
       {/* ── Action Modal ── */}
       <Modal
         visible={actionModalVisible}
@@ -448,14 +530,12 @@ export default function ProfileScreen() {
           onPress={() => setActionModalVisible(false)}
         >
           <View style={styles.bottomSheet}>
-            {/* Handle */}
             <View style={styles.sheetHandle} />
 
             <Text style={styles.sheetTitle} numberOfLines={1}>
               {selectedListing?.title}
             </Text>
 
-            {/* Status pill preview */}
             {selectedListing && (
               <View style={styles.sheetStatusRow}>
                 <View
@@ -631,7 +711,6 @@ const styles = StyleSheet.create({
     paddingTop: hp(4),
     paddingBottom: hp(2),
     alignItems: "center",
-   
   },
   avatarWrap: {
     position: "absolute",
@@ -770,7 +849,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: wp(4),
     gap: wp(2),
     marginTop: hp(2),
-   
   },
   statCard: {
     flex: 1,
@@ -958,6 +1036,36 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: wp(3.8),
   },
+
+  // ── Image viewer ──
+  imageViewerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.95)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageViewerClose: {
+    position: "absolute",
+    top: hp(6),
+    right: wp(5),
+    width: wp(10),
+    height: wp(10),
+    borderRadius: wp(5),
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  imageViewerImgWrap: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH,
+  },
+  imageViewerImg: {
+    width: "100%",
+    height: "100%",
+  },
+
+  // ── Modals ──
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",

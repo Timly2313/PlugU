@@ -10,462 +10,614 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
 } from 'react-native';
-import { ArrowLeft, ImageIcon, Video, X, Plus } from 'lucide-react-native';
+import { ArrowLeft, ImageIcon, Video, X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { hp, wp } from '../utilities/dimensions';
 import { router } from 'expo-router';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { StatusBar } from 'expo-status-bar';
-import { useAuth } from "../context/authContext";
-import { createPost } from "../services/postsService";
+import { useAuth } from '../context/authContext';
+import { supabase } from '../lib/supabase';
+import { uploadMediaToSupabase } from '../services/imageService';
 
+const PRIMARY = '#3F51B5';
 
-export default function CreatePostScreen({ onSubmit }) {
-  const onBack = () => router.back();
+// ─── Insert post directly — active status, picked up by realtime ─────────────
 
+async function insertPost({ userId, content, mediaUrls, tags }) {
+  const { data: post, error: postError } = await supabase
+    .from('posts')
+    .insert({
+      user_id: userId,
+      content,
+      media_urls: mediaUrls,
+      status: 'active',
+    })
+    .select()
+    .single();
+
+  if (postError) throw new Error(postError.message);
+
+  // Insert tags if provided (best-effort, non-blocking)
+  if (tags.length > 0) {
+    const tagRows = tags.map((tag) => ({ post_id: post.id, tag_name: tag }));
+    await supabase.from('post_tags').insert(tagRows).then(({ error }) => {
+      if (error) console.warn('Tag insert warning:', error.message);
+    });
+  }
+
+  return post;
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
+export default function CreatePostScreen() {
   const { user, profile } = useAuth();
-  const [submitting, setSubmitting] = useState(false);
 
-  const [postContent, setPostContent] = useState('');
-  const [uploadedMedia, setUploadedMedia] = useState([]);
+  const [content, setContent] = useState('');
+  const [media, setMedia] = useState([]); // { id, type, localUri, asset }
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
 
-  const pickImage = async () => {
+  const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
+
+  // ── Media pickers ────────────────────────────────────────────────────────────
+
+  const pickMedia = async (mediaType) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'Sorry, we need camera roll permissions to make this work!');
+      Alert.alert('Permission required', 'Camera roll access is needed to attach media.');
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: "Images",
+      mediaTypes: mediaType === 'image' ? 'Images' : 'Videos',
       allowsMultipleSelection: true,
       quality: 0.8,
     });
 
     if (!result.canceled) {
-      const newImages = result.assets.map((asset) => ({
-        id: Math.random().toString(),
-        type: 'image',
-        url: asset.uri,
+      const picked = result.assets.map((asset) => ({
+        id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        type: mediaType,
+        localUri: asset.uri,
         asset,
       }));
-      setUploadedMedia((prev) => [...prev, ...newImages]);
+      setMedia((prev) => [...prev, ...picked]);
     }
   };
 
-  const pickVideo = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission required', 'Sorry, we need camera roll permissions to make this work!');
-      return;
-    }
+  const removeMedia = (id) => setMedia((prev) => prev.filter((m) => m.id !== id));
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: "Videos",
-      allowsMultipleSelection: true,
-      quality: 0.8,
-    });
+  // ── Tags ─────────────────────────────────────────────────────────────────────
 
-    if (!result.canceled) {
-      const newVideos = result.assets.map((asset) => ({
-        id: Math.random().toString(),
-        type: 'video',
-        url: asset.uri,
-        asset,
-      }));
-      setUploadedMedia((prev) => [...prev, ...newVideos]);
-    }
-  };
-
-  const removeMedia = (id) => setUploadedMedia((prev) => prev.filter((m) => m.id !== id));
-
-  const handleAddTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim()) && tags.length < 10) {
-      setTags((prev) => [...prev, tagInput.trim()]);
+  const addTag = () => {
+    const t = tagInput.trim().replace(/^#/, '');
+    if (t && !tags.includes(t) && tags.length < 10) {
+      setTags((prev) => [...prev, t]);
       setTagInput('');
     }
   };
 
-  const removeTag = (tagToRemove) => setTags((prev) => prev.filter((tag) => tag !== tagToRemove));
+  const removeTag = (t) => setTags((prev) => prev.filter((x) => x !== t));
+
+  // ── Submit ───────────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
     if (!user || !profile) {
-      Alert.alert("Error", "You must be logged in");
+      Alert.alert('Error', 'You must be logged in to post.');
       return;
     }
-
-    if (!postContent.trim() && uploadedMedia.length === 0) {
-      Alert.alert("Empty post", "Add text or media before posting");
+    if (!content.trim() && media.length === 0) {
+      Alert.alert('Empty post', 'Add some text or media before posting.');
       return;
     }
 
     try {
       setSubmitting(true);
 
-      await createPost({
+      // 1. Upload each media file and collect public URLs
+      const mediaUrls = [];
+      for (let i = 0; i < media.length; i++) {
+        const item = media[i];
+        setUploadProgress(`Uploading ${item.type} ${i + 1} of ${media.length}…`);
+        const url = await uploadMediaToSupabase(item.localUri, user.id, 'post-media', item.type);
+        mediaUrls.push(url);
+      }
+
+      // 2. Insert post directly — goes live instantly via realtime
+      setUploadProgress('Publishing post…');
+      await insertPost({
         userId: user.id,
-        content: postContent.trim(),
-        media: uploadedMedia.map((m) => ({
-          uri: m.url,
-          type: m.type,
-        })),
+        content: content.trim(),
+        mediaUrls,
         tags,
       });
 
-      Alert.alert("Success", "Post created successfully");
       router.back();
-    } catch (error) {
-      console.error("Create post error:", error);
-      Alert.alert("Error", error.message || "Failed to create post");
+    } catch (err) {
+      console.error('Create post error:', err);
+      Alert.alert('Error', err.message || 'Failed to create post. Please try again.');
     } finally {
       setSubmitting(false);
+      setUploadProgress('');
     }
   };
 
+  const canSubmit = (content.trim().length > 0 || media.length > 0) && !submitting;
 
-  const canSubmit = postContent.trim() || uploadedMedia.length > 0;
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <ScreenWrapper>
-      <StatusBar barStyle="dark-content" />
+    <ScreenWrapper bg="#F9FAFB">
+      <StatusBar style="dark" />
       <View style={styles.container}>
-        {/* Header */}
+
+        {/* ── Header ── */}
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <TouchableOpacity style={styles.backButton} onPress={onBack}>
-              <ArrowLeft size={wp(5)} color="#374151" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Create Post</Text>
-          </View>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} disabled={submitting}>
+            <ArrowLeft size={wp(5)} color="#374151" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Create Post</Text>
+          <Text style={[styles.charCount, content.length > 900 && { color: '#EF4444' }]}>
+            {content.length}/1000
+          </Text>
         </View>
 
-        {/* Content */}
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
           <ScrollView
-            style={styles.scrollView}
+            style={{ flex: 1 }}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: hp(12) }} // Space for fixed button
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
           >
-            <View style={styles.content}>
-              {/* Post Content */}
-              <View style={styles.section}>
-                <TextInput
-                  style={styles.textArea}
-                  placeholder="What's on your mind?"
-                  value={postContent}
-                  onChangeText={setPostContent}
-                  multiline
-                  textAlignVertical="top"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
 
-              {/* Media Upload Buttons */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Add to your post</Text>
-                <View style={styles.mediaButtons}>
-                  <TouchableOpacity style={styles.mediaButton} onPress={pickImage}>
-                    <ImageIcon size={wp(5)} color="#3F51B5" />
-                    <Text style={styles.mediaButtonText}>Photo</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.mediaButton} onPress={pickVideo}>
-                    <Video size={wp(5)} color="#3F51B5" />
-                    <Text style={styles.mediaButtonText}>Video</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Uploaded Media Preview */}
-              {uploadedMedia.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Media ({uploadedMedia.length})</Text>
-                  <View style={styles.mediaGrid}>
-                    {uploadedMedia.map((media) => (
-                      <View key={media.id} style={styles.mediaItem}>
-                        {media.type === 'image' ? (
-                          <Image source={{ uri: media.url }} style={styles.mediaImage} />
-                        ) : (
-                          <View style={styles.videoContainer}>
-                            <Text style={styles.videoPlaceholder}>Video</Text>
-                          </View>
-                        )}
-                        <TouchableOpacity
-                          style={styles.removeMediaButton}
-                          onPress={() => removeMedia(media.id)}
-                        >
-                          <X size={wp(4)} color="white" />
-                        </TouchableOpacity>
-                        <View style={styles.mediaTypeBadge}>
-                          <Text style={styles.mediaTypeText}>
-                            {media.type === 'image' ? 'Image' : 'Video'}
-                          </Text>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
+            {/* ── Author row ── */}
+            <View style={styles.authorRow}>
+              {profile?.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} style={styles.authorAvatar} />
+              ) : (
+                <View style={styles.authorAvatarFallback}>
+                  <Text style={styles.authorAvatarInitial}>
+                    {(profile?.display_name?.[0] ?? profile?.username?.[0] ?? 'U').toUpperCase()}
+                  </Text>
                 </View>
               )}
+              <View>
+                <Text style={styles.authorName}>
+                  {profile?.display_name ?? profile?.username ?? 'You'}
+                </Text>
+                <Text style={styles.visibilityText}>Community · visible instantly</Text>
+              </View>
+            </View>
 
-              {/* Tags Section */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Tags (optional)</Text>
-                <View style={styles.tagsContainer}>
-                  {tags.map((tag) => (
-                    <View key={tag} style={styles.tag}>
-                      <Text style={styles.tagText}>#{tag}</Text>
-                      <TouchableOpacity onPress={() => removeTag(tag)}>
-                        <X size={wp(3.5)} color="#3F51B5" />
+            {/* ── Text input ── */}
+            <View style={styles.card}>
+              <TextInput
+                style={styles.textArea}
+                placeholder="What's on your mind?"
+                placeholderTextColor="#9CA3AF"
+                value={content}
+                onChangeText={(t) => t.length <= 1000 && setContent(t)}
+                multiline
+                textAlignVertical="top"
+                editable={!submitting}
+              />
+            </View>
+
+            {/* ── Media picker buttons ── */}
+            <View style={styles.card}>
+              <Text style={styles.cardLabel}>Add to your post</Text>
+              <View style={styles.mediaPickerRow}>
+                <TouchableOpacity
+                  style={styles.mediaPickerBtn}
+                  onPress={() => pickMedia('image')}
+                  disabled={submitting}
+                  activeOpacity={0.75}
+                >
+                  <ImageIcon size={wp(4.5)} color={PRIMARY} />
+                  <Text style={styles.mediaPickerText}>Photo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.mediaPickerBtn}
+                  onPress={() => pickMedia('video')}
+                  disabled={submitting}
+                  activeOpacity={0.75}
+                >
+                  <Video size={wp(4.5)} color={PRIMARY} />
+                  <Text style={styles.mediaPickerText}>Video</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* ── Media preview grid ── */}
+            {media.length > 0 && (
+              <View style={styles.card}>
+                <Text style={styles.cardLabel}>Media ({media.length})</Text>
+                <View style={styles.mediaGrid}>
+                  {media.map((item) => (
+                    <View key={item.id} style={styles.mediaThumb}>
+                      {item.type === 'image' ? (
+                        <Image
+                          source={{ uri: item.localUri }}
+                          style={StyleSheet.absoluteFill}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={[StyleSheet.absoluteFill, styles.videoThumbInner]}>
+                          <Video size={wp(8)} color="#9CA3AF" />
+                          <Text style={styles.videoLabel}>Video</Text>
+                        </View>
+                      )}
+                      <View style={styles.mediaBadge}>
+                        <Text style={styles.mediaBadgeText}>
+                          {item.type === 'image' ? 'IMG' : 'VID'}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.mediaRemoveBtn}
+                        onPress={() => removeMedia(item.id)}
+                        disabled={submitting}
+                      >
+                        <X size={wp(3.5)} color="white" />
                       </TouchableOpacity>
                     </View>
                   ))}
                 </View>
-
-                {tags.length < 10 && (
-                  <TextInput
-                    style={styles.tagInput}
-                    placeholder="Type a tag and press Enter (max 10 tags)"
-                    value={tagInput}
-                    onChangeText={setTagInput}
-                    onSubmitEditing={handleAddTag}
-                    placeholderTextColor="#9CA3AF"
-                  />
-                )}
-                <Text style={styles.tagCount}>{tags.length}/10 tags</Text>
               </View>
+            )}
 
-              {/* Post Tips */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Post Tips</Text>
-                <View style={styles.tipsList}>
-                  <Text style={styles.tip}>• Keep your posts respectful and relevant</Text>
-                  <Text style={styles.tip}>• Use tags to help others find your content</Text>
-                  <Text style={styles.tip}>• Add photos or videos to make posts more engaging</Text>
-                  <Text style={styles.tip}>• Avoid posting personal information</Text>
+            {/* ── Tags ── */}
+            <View style={styles.card}>
+              <Text style={styles.cardLabel}>
+                Tags{' '}
+                <Text style={styles.optional}>(optional · {tags.length}/10)</Text>
+              </Text>
+
+              {tags.length > 0 && (
+                <View style={styles.tagsWrap}>
+                  {tags.map((t) => (
+                    <View key={t} style={styles.tag}>
+                      <Text style={styles.tagText}>#{t}</Text>
+                      <TouchableOpacity
+                        onPress={() => removeTag(t)}
+                        disabled={submitting}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <X size={wp(3)} color={PRIMARY} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
                 </View>
-              </View>
+              )}
+
+              {tags.length < 10 && (
+                <TextInput
+                  style={styles.tagInput}
+                  placeholder="Type a tag and press return…"
+                  placeholderTextColor="#9CA3AF"
+                  value={tagInput}
+                  onChangeText={setTagInput}
+                  onSubmitEditing={addTag}
+                  blurOnSubmit={false}
+                  returnKeyType="done"
+                  editable={!submitting}
+                />
+              )}
             </View>
+
+            {/* ── Tips ── */}
+            <View style={[styles.card, styles.tipsCard]}>
+              <Text style={styles.cardLabel}>Tips</Text>
+              {[
+                'Keep posts respectful and relevant to the community.',
+                'Use tags to help others discover your content.',
+                'Photos and videos make posts more engaging.',
+                'Avoid sharing personal or sensitive information.',
+              ].map((tip, i) => (
+                <Text key={i} style={styles.tip}>· {tip}</Text>
+              ))}
+            </View>
+
           </ScrollView>
         </KeyboardAvoidingView>
 
-        {/* Fixed Post Button */}
+        {/* ── Fixed footer ── */}
         <View style={styles.footer}>
-        <TouchableOpacity
-          style={[
-            styles.postButton,
-            (!canSubmit || submitting) && styles.postButtonDisabled,
-          ]}
-          disabled={!canSubmit || submitting}
-          onPress={handleSubmit}
-        >
-          {submitting ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.postButtonText}>Post</Text>
-          )}
-        </TouchableOpacity>
-
+          {submitting && uploadProgress ? (
+            <Text style={styles.progressText}>{uploadProgress}</Text>
+          ) : null}
+          <TouchableOpacity
+            style={[styles.postBtn, !canSubmit && styles.postBtnDisabled]}
+            onPress={handleSubmit}
+            disabled={!canSubmit}
+            activeOpacity={0.85}
+          >
+            {submitting ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.postBtnText}>Post to Community</Text>
+            )}
+          </TouchableOpacity>
         </View>
+
       </View>
     </ScreenWrapper>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const THUMB_SIZE = (wp(100) - wp(4) * 2 - wp(4) * 2 - wp(3)) / 2;
+
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#F9FAFB' 
+  container: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
   },
+
+  // Header
   header: {
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    paddingHorizontal: wp(4),
-    paddingVertical: hp(1.5),
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: wp(4),
+    paddingVertical: hp(1.5),
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    gap: wp(3),
   },
-  headerLeft: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: wp(3) 
-  },
-  backButton: {
+  backBtn: {
     width: wp(9),
     height: wp(9),
     borderRadius: wp(4.5),
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
   },
-  headerTitle: { 
-    fontSize: wp(5), 
-    fontWeight: 'bold', 
-    color: '#111827' 
+  headerTitle: {
+    flex: 1,
+    fontSize: wp(5),
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: -0.3,
   },
-  scrollView: { 
-    flex: 1 
+  charCount: {
+    fontSize: wp(3),
+    color: '#9CA3AF',
+    fontWeight: '500',
   },
-  content: { 
-    padding: wp(4), 
-    gap: hp(2) 
+
+  // Scroll
+  scrollContent: {
+    padding: wp(4),
+    gap: hp(1.5),
+    paddingBottom: hp(14),
   },
-  section: {
+
+  // Author row
+  authorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(3),
+    paddingVertical: hp(0.5),
+  },
+  authorAvatar: {
+    width: wp(11),
+    height: wp(11),
+    borderRadius: wp(5.5),
+    backgroundColor: '#E5E7EB',
+  },
+  authorAvatarFallback: {
+    width: wp(11),
+    height: wp(11),
+    borderRadius: wp(5.5),
+    backgroundColor: PRIMARY,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  authorAvatarInitial: {
+    color: 'white',
+    fontWeight: '800',
+    fontSize: wp(4.5),
+  },
+  authorName: {
+    fontSize: wp(3.8),
+    fontWeight: '700',
+    color: '#111827',
+  },
+  visibilityText: {
+    fontSize: wp(2.8),
+    color: '#9CA3AF',
+    marginTop: hp(0.2),
+  },
+
+  // Cards
+  card: {
     backgroundColor: 'white',
     borderRadius: wp(4),
     padding: wp(4),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
     elevation: 1,
   },
-  textArea: { 
-    minHeight: hp(15), 
-    fontSize: wp(3.5), 
-    color: '#111827', 
-    textAlignVertical: 'top' 
+  cardLabel: {
+    fontSize: wp(3.8),
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: hp(1.2),
   },
-  sectionTitle: { 
-    fontSize: wp(4), 
-    fontWeight: '600', 
-    color: '#111827', 
-    marginBottom: hp(1.5) 
+  optional: {
+    fontWeight: '400',
+    color: '#9CA3AF',
+    fontSize: wp(3.2),
   },
-  mediaButtons: { 
-    flexDirection: 'row', 
-    gap: wp(3) 
+
+  // Text area
+  textArea: {
+    minHeight: hp(14),
+    fontSize: wp(3.8),
+    color: '#111827',
+    textAlignVertical: 'top',
+    lineHeight: hp(2.5),
   },
-  mediaButton: {
+
+  // Media picker
+  mediaPickerRow: {
+    flexDirection: 'row',
+    gap: wp(3),
+  },
+  mediaPickerBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#3F51B5',
-    borderRadius: wp(4),
-    paddingVertical: hp(1.2),
     gap: wp(2),
+    borderWidth: 1.5,
+    borderColor: PRIMARY,
+    borderRadius: wp(3),
+    paddingVertical: hp(1.2),
   },
-  mediaButtonText: { 
-    color: '#3F51B5', 
-    fontSize: wp(3.5), 
-    fontWeight: '500' 
+  mediaPickerText: {
+    color: PRIMARY,
+    fontSize: wp(3.5),
+    fontWeight: '600',
   },
-  mediaGrid: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    gap: wp(3) 
+
+  // Media grid
+  mediaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: wp(3),
   },
-  mediaItem: {
-    width: (wp(100) - wp(4) * 2 - wp(4) * 2 - wp(3)) / 2,
-    aspectRatio: 1,
-    borderRadius: wp(4),
+  mediaThumb: {
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: wp(3),
     backgroundColor: '#F3F4F6',
     overflow: 'hidden',
   },
-  mediaImage: { 
-    width: '100%', 
-    height: '100%' 
+  videoThumbInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: hp(0.5),
+    backgroundColor: '#E5E7EB',
   },
-  videoContainer: { 
-    width: '100%', 
-    height: '100%', 
-    backgroundColor: '#E5E7EB', 
-    alignItems: 'center', 
-    justifyContent: 'center' 
+  videoLabel: {
+    fontSize: wp(3),
+    color: '#6B7280',
+    fontWeight: '500',
   },
-  videoPlaceholder: { 
-    color: '#6B7280', 
-    fontSize: wp(3.5) 
+  mediaBadge: {
+    position: 'absolute',
+    bottom: wp(2),
+    left: wp(2),
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: wp(1.5),
+    paddingHorizontal: wp(2),
+    paddingVertical: hp(0.3),
   },
-  removeMediaButton: { 
-    position: 'absolute', 
-    top: wp(2), 
-    right: wp(2), 
-    backgroundColor: 'rgba(0,0,0,0.6)', 
-    borderRadius: wp(2), 
-    padding: wp(1) 
+  mediaBadgeText: {
+    color: 'white',
+    fontSize: wp(2.2),
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
-  mediaTypeBadge: { 
-    position: 'absolute', 
-    bottom: wp(2), 
-    left: wp(2), 
-    backgroundColor: 'rgba(0,0,0,0.6)', 
-    borderRadius: wp(2), 
-    paddingHorizontal: wp(2), 
-    paddingVertical: hp(0.5) 
+  mediaRemoveBtn: {
+    position: 'absolute',
+    top: wp(2),
+    right: wp(2),
+    width: wp(7),
+    height: wp(7),
+    borderRadius: wp(3.5),
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  mediaTypeText: { 
-    color: 'white', 
-    fontSize: wp(2.5) 
+
+  // Tags
+  tagsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: wp(2),
+    marginBottom: hp(1.2),
   },
-  tagsContainer: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    gap: wp(2), 
-    marginBottom: hp(1.5) 
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: wp(1.5),
+    backgroundColor: '#EEF2FF',
+    borderRadius: wp(50),
+    paddingHorizontal: wp(3),
+    paddingVertical: hp(0.6),
   },
-  tag: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: wp(1.5), 
-    backgroundColor: '#E8EAF6', 
-    borderRadius: wp(50), 
-    paddingHorizontal: wp(3), 
-    paddingVertical: hp(0.8) 
-  },
-  tagText: { 
-    color: '#3F51B5', 
-    fontSize: wp(3) 
+  tagText: {
+    color: PRIMARY,
+    fontSize: wp(3.2),
+    fontWeight: '600',
   },
   tagInput: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: wp(3),
-    paddingHorizontal: wp(3),
+    paddingHorizontal: wp(3.5),
     paddingVertical: hp(1),
     fontSize: wp(3.5),
     color: '#111827',
     backgroundColor: '#F9FAFB',
-    marginBottom: hp(0.5),
   },
-  tagCount: { 
-    fontSize: wp(2.5), 
-    color: '#6B7280' 
+
+  // Tips
+  tipsCard: {
+    backgroundColor: '#F0F4FF',
   },
-  tipsList: { 
-    gap: hp(0.5) 
+  tip: {
+    fontSize: wp(3.3),
+    color: '#6B7280',
+    lineHeight: hp(2.3),
+    marginBottom: hp(0.3),
   },
-  tip: { 
-    fontSize: wp(3.5), 
-    color: '#6B7280', 
-    lineHeight: hp(2.2) 
-  },
+
+  // Footer
   footer: {
     position: 'absolute',
     bottom: 0,
     width: '100%',
-    padding: wp(4),
-    backgroundColor: '#F9FAFB',
+    paddingHorizontal: wp(4),
+    paddingTop: hp(1),
+    paddingBottom: hp(3),
+    backgroundColor: 'white',
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#F3F4F6',
+    gap: hp(0.8),
   },
-  postButton: { 
-    backgroundColor: '#3F51B5', 
-    borderRadius: wp(4), 
-    paddingVertical: hp(1.5), 
-    alignItems: 'center' 
+  progressText: {
+    fontSize: wp(3),
+    color: '#6B7280',
+    textAlign: 'center',
+    fontWeight: '500',
   },
-  postButtonDisabled: { 
-    backgroundColor: '#9CA3AF' 
+  postBtn: {
+    backgroundColor: PRIMARY,
+    borderRadius: wp(3.5),
+    paddingVertical: hp(1.7),
+    alignItems: 'center',
   },
-  postButtonText: { 
-    color: 'white', 
-    fontSize: wp(4), 
-    fontWeight: '600' 
+  postBtnDisabled: {
+    backgroundColor: '#C7D2FE',
+  },
+  postBtnText: {
+    color: 'white',
+    fontSize: wp(4),
+    fontWeight: '700',
   },
 });

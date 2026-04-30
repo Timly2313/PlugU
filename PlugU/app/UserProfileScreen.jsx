@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Modal,
 } from "react-native";
 import {
   ArrowLeft,
@@ -22,6 +23,7 @@ import {
   Globe,
   ShieldCheck,
   Zap,
+  X,
 } from "lucide-react-native";
 import { StatusBar } from "expo-status-bar";
 import { router, useLocalSearchParams } from "expo-router";
@@ -57,6 +59,33 @@ export default function UserProfileScreen() {
   const [followLoading, setFollowLoading] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
 
+  // ── Full-screen image viewer ──
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [imageViewerUri, setImageViewerUri] = useState(null);
+  const imageViewerAnim = useRef(new Animated.Value(0)).current;
+
+  const openImageViewer = (uri) => {
+    if (!uri) return;
+    setImageViewerUri(uri);
+    setImageViewerVisible(true);
+    Animated.timing(imageViewerAnim, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeImageViewer = () => {
+    Animated.timing(imageViewerAnim, {
+      toValue: 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start(() => {
+      setImageViewerVisible(false);
+      setImageViewerUri(null);
+    });
+  };
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
@@ -71,7 +100,6 @@ export default function UserProfileScreen() {
     try {
       setLoading(true);
 
-      // Single RPC call replaces all the individual profile/follow queries
       const { data: profileData, error: profileError } = await supabase
         .rpc("get_user_profile_with_stats", { p_user_id: userId });
 
@@ -84,7 +112,6 @@ export default function UserProfileScreen() {
         setFollowerCount(p.follower_count ?? 0);
       }
 
-      // Fetch listings
       const { data: listingData } = await supabase
         .from("listings")
         .select("id, title, price, location, images, category, status")
@@ -178,7 +205,11 @@ export default function UserProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
 
         {/* ── Banner ── */}
-        <View style={styles.bannerWrap}>
+        <TouchableOpacity
+          activeOpacity={profile.cover_image_url ? 0.85 : 1}
+          onPress={() => openImageViewer(profile.cover_image_url)}
+          style={styles.bannerWrap}
+        >
           {profile.cover_image_url ? (
             <Image
               source={{ uri: profile.cover_image_url }}
@@ -188,7 +219,7 @@ export default function UserProfileScreen() {
           ) : (
             <View style={styles.bannerFallback} />
           )}
-        </View>
+        </TouchableOpacity>
 
         {/* ── Profile card ── */}
         <Animated.View
@@ -197,8 +228,12 @@ export default function UserProfileScreen() {
             { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
           ]}
         >
-          {/* Avatar */}
-          <View style={styles.avatarWrap}>
+          {/* Avatar — tappable */}
+          <TouchableOpacity
+            style={styles.avatarWrap}
+            activeOpacity={profile.avatar_url ? 0.85 : 1}
+            onPress={() => openImageViewer(profile.avatar_url)}
+          >
             {profile.avatar_url ? (
               <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
             ) : (
@@ -206,7 +241,7 @@ export default function UserProfileScreen() {
                 <Text style={styles.avatarInitial}>{avatarInitial}</Text>
               </View>
             )}
-          </View>
+          </TouchableOpacity>
 
           {/* Badges row */}
           <View style={styles.badgesRow}>
@@ -437,6 +472,39 @@ export default function UserProfileScreen() {
 
         <View style={{ height: hp(6) }} />
       </ScrollView>
+
+      {/* ── Full-Screen Image Viewer ── */}
+      <Modal
+        visible={imageViewerVisible}
+        transparent
+        statusBarTranslucent
+        animationType="none"
+        onRequestClose={closeImageViewer}
+      >
+        <Animated.View
+          style={[styles.imageViewerOverlay, { opacity: imageViewerAnim }]}
+        >
+          {/* Close button */}
+          <TouchableOpacity style={styles.imageViewerClose} onPress={closeImageViewer}>
+            <X size={wp(5.5)} color="white" />
+          </TouchableOpacity>
+
+          {/* Tap anywhere to dismiss */}
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.imageViewerImgWrap}
+            onPress={closeImageViewer}
+          >
+            {imageViewerUri && (
+              <Image
+                source={{ uri: imageViewerUri }}
+                style={styles.imageViewerImg}
+                resizeMode="contain"
+              />
+            )}
+          </TouchableOpacity>
+        </Animated.View>
+      </Modal>
     </View>
   );
 }
@@ -850,5 +918,33 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     textAlign: "center",
     lineHeight: hp(2.5),
+  },
+
+  // ── Image viewer ──
+  imageViewerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.95)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageViewerClose: {
+    position: "absolute",
+    top: hp(6),
+    right: wp(5),
+    width: wp(10),
+    height: wp(10),
+    borderRadius: wp(5),
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  imageViewerImgWrap: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH,
+  },
+  imageViewerImg: {
+    width: "100%",
+    height: "100%",
   },
 });
