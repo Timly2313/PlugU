@@ -35,6 +35,7 @@ export default function CommunityScreen() {
     openComments,
     closeComments,
     sendComment,
+    likeComment,
   } = useComments(currentUser, setPosts);
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
@@ -138,6 +139,7 @@ export default function CommunityScreen() {
         onChangeText={setCommentText}
         onSend={sendComment}
         onClose={closeComments}
+        onLikeComment={likeComment} 
       />
     </ScreenWrapper>
   );

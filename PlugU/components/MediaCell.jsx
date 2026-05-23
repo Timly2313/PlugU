@@ -3,14 +3,23 @@ import { TouchableOpacity, Image } from 'react-native';
 import InFeedVideo from './InFeedVideo';
 import { isVideo } from '../utilities/communityUtils';
 
-export default function MediaCell({ url, style, isVisible, onImagePress, onVideoLongPress }) {
+export default function MediaCell({
+  url,
+  style,
+  isVisible,
+  onImagePress,
+  onVideoLongPress,
+  // natural dimensions fetched by MediaGrid for single-item ratio logic
+  naturalWidth,
+  naturalHeight,
+}) {
   if (isVideo(url)) {
     return (
       <InFeedVideo
         url={url}
         style={style}
         isVisible={isVisible}
-        onLongPress={() => onVideoLongPress(url)}
+        onLongPress={onVideoLongPress}
       />
     );
   }

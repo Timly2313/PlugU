@@ -1,54 +1,26 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, StyleSheet, TouchableWithoutFeedback, ActivityIndicator,
 } from 'react-native';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { Video, ResizeMode } from 'expo-av';
 import { Volume2, VolumeX, Play } from 'lucide-react-native';
 import { wp } from '../utilities/dimensions';
 
 export default function InFeedVideo({ url, style, isVisible, onLongPress }) {
-  const [muted,   setMuted]   = useState(true);
-  const [ready,   setReady]   = useState(false);
-  const [playing, setPlaying] = useState(false);
+  const videoRef            = useRef(null);
+  const [muted,  setMuted]  = useState(true);
+  const [status, setStatus] = useState({});
+  const [ready,  setReady]  = useState(false);
 
-  const player = useVideoPlayer(url, (p) => {
-    p.loop    = true;
-    p.muted   = true;
-    p.volume  = 1;
-  });
-
-  // Auto-play / pause based on feed visibility
   useEffect(() => {
-    if (!player) return;
+    if (!videoRef.current || !ready) return;
     if (isVisible) {
-      player.play();
+      videoRef.current.playAsync().catch(() => {});
     } else {
-      player.pause();
-      player.seekBy(-player.currentTime); // reset to start
+      videoRef.current.pauseAsync().catch(() => {});
+      videoRef.current.setPositionAsync(0).catch(() => {});
     }
-  }, [isVisible, player]);
-
-  // Sync mute state to player
-  useEffect(() => {
-    if (!player) return;
-    player.muted = muted;
-  }, [muted, player]);
-
-  // Track playing state for the pause overlay
-  useEffect(() => {
-    if (!player) return;
-    const sub = player.addListener('playingChange', ({ isPlaying }) => {
-      setPlaying(isPlaying);
-      if (!ready && isPlaying) setReady(true);
-    });
-    const readySub = player.addListener('statusChange', ({ status }) => {
-      if (status === 'readyToPlay') setReady(true);
-    });
-    return () => {
-      sub.remove();
-      readySub.remove();
-    };
-  }, [player]);
+  }, [isVisible, ready]);
 
   return (
     <TouchableWithoutFeedback
@@ -57,29 +29,28 @@ export default function InFeedVideo({ url, style, isVisible, onLongPress }) {
       delayLongPress={400}
     >
       <View style={[style, { backgroundColor: '#000' }]}>
-        <VideoView
-          player={player}
+        <Video
+          ref={videoRef}
+          source={{ uri: url }}
           style={StyleSheet.absoluteFill}
-          contentFit="cover"
-          nativeControls={false}
+          resizeMode={ResizeMode.COVER}
+          isMuted={muted}
+          isLooping
+          shouldPlay={false}
+          onPlaybackStatusUpdate={setStatus}
+          onReadyForDisplay={() => setReady(true)}
         />
-
-        {/* Mute badge */}
         <View style={s.muteBadge}>
           {muted
             ? <VolumeX size={wp(3.5)} color="#fff" />
             : <Volume2 size={wp(3.5)} color="#fff" />}
         </View>
-
-        {/* Loading spinner */}
         {!ready && (
           <View style={s.overlay}>
             <ActivityIndicator color="#fff" size="small" />
           </View>
         )}
-
-        {/* Paused hint */}
-        {ready && !playing && isVisible && (
+        {ready && !status.isPlaying && isVisible && (
           <View style={s.overlay}>
             <Play size={wp(10)} color="#fff" fill="#fff" />
           </View>

@@ -54,25 +54,37 @@ export const communityService = {
         };
       }),
 
-  getComments: (postId) =>
-    supabase
-      .rpc('get_post_comments', { p_post_id: postId })
-      .then(({ data, error }) => {
-        if (error) throw error;
-        return (data || []).map((r) => ({
-          id:         r.id,
-          content:    r.content,
-          created_at: r.created_at,
-          user_id:    r.user_id,
-          parent_id:  r.parent_id,
-          like_count: r.like_count ?? 0,
-          profiles: {
-            username:     r.username,
-            display_name: r.display_name,
-            avatar_url:   r.avatar_url,
-          },
-        }));
-      }),
+  getComments: (postId, userId) =>
+  supabase
+    .rpc('get_post_comments', { p_post_id: postId, p_user_id: userId })
+    .then(({ data, error }) => {
+      if (error) throw error;
+      return (data || []).map((r) => ({
+        id:         r.id,
+        content:    r.content,
+        created_at: r.created_at,
+        user_id:    r.user_id,
+        parent_id:  r.parent_id,
+        like_count: r.like_count ?? 0,
+        is_liked:   r.is_liked ?? false,
+        profiles: {
+          username:     r.username,
+          display_name: r.display_name,
+          avatar_url:   r.avatar_url,
+        },
+      }));
+    }),
+
+toggleCommentLike: (commentId, userId) =>
+  supabase
+    .rpc('toggle_comment_like', {
+      p_comment_id: commentId,
+      p_user_id:    userId,
+    })
+    .then(({ data, error }) => {
+      if (error) throw error;
+      return data[0]; // { liked, like_count }
+    }),
 
   likePost:    (postId, action) => callEdge('like_post',    { post_id: postId, action }),
   sendComment: (postId, content, parentId) =>
