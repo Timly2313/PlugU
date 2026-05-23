@@ -157,9 +157,9 @@ const api = {
         return data || [];
       }),
 
-  like:    (postId, action) => callEdge('like-post',      { post_id: postId, action }),
+  like:    (postId, action) => callEdge('like_post',      { post_id: postId, action }),
   comment: (postId, content, parentId) =>
-    callEdge('create-comment', { post_id: postId, content, parent_id: parentId }),
+    callEdge('comment_post', { post_id: postId, content, parent_id: parentId }),
 };
 
 // ─── Image Lightbox ───────────────────────────────────────────────────────────
