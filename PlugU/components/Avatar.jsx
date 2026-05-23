@@ -1,50 +1,70 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Image, Text, StyleSheet } from "react-native";
 
-export default function Avatar({ 
-  uri, 
-  size = 50, 
-  borderColor = "#fff", 
-  borderWidth = 2, 
-  initials 
+export default function Avatar({
+  uri,
+  size = 50,
+  borderColor = "#fff",
+  borderWidth = 2,
+  initials,   // explicit initials take priority
+  name,       // fallback: derive initial from name
+  style,      // extra style for positioning (used by community components)
 }) {
+  const [failed, setFailed] = useState(false);
+
+  // Resolve what letter to show: explicit initials → first letter of name → "U"
+  const fallbackText = initials
+    || (name ? name[0].toUpperCase() : null)
+    || "U";
+
+  const showFallback = !uri || failed;
+
   return (
     <View
       style={[
-        styles.avatarContainer,
+        styles.container,
         {
           width: size,
           height: size,
           borderRadius: size / 2,
-          borderColor: borderColor,
-          borderWidth: borderWidth,
+          borderColor,
+          borderWidth,
         },
+        style,
       ]}
     >
-      {uri ? (
+      {showFallback ? (
+        <View
+          style={[
+            styles.initialsContainer,
+            { width: size, height: size, borderRadius: size / 2 },
+          ]}
+        >
+          <Text style={[styles.initialsText, { fontSize: size * 0.38 }]}>
+            {fallbackText}
+          </Text>
+        </View>
+      ) : (
         <Image
           source={{ uri }}
           style={{ width: size, height: size, borderRadius: size / 2 }}
           resizeMode="cover"
+          onError={() => setFailed(true)}
         />
-      ) : (
-        <View style={[styles.initialsContainer, { width: size, height: size, borderRadius: size / 2 }]}>
-          <Text style={[styles.initialsText, { fontSize: size / 2 }]}>{initials || "U"}</Text>
-        </View>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  avatarContainer: {
+  container: {
     overflow: "hidden",
     backgroundColor: "#ccc",
     justifyContent: "center",
     alignItems: "center",
   },
   initialsContainer: {
-    backgroundColor: "#888",
+    backgroundColor: "#3F51B5",
     justifyContent: "center",
     alignItems: "center",
   },

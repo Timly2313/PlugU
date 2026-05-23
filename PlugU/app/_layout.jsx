@@ -3,7 +3,7 @@ import { View, Text, ActivityIndicator } from "react-native";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { AuthProvider, useAuth } from "../context/authContext";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { queryClient, asyncPersister } from "../lib/queryClient";
+import { queryClient, asyncPersister } from "../lib/queryClient"; // ← add asyncPersister
 import OnboardingScreen from "./OnboardingScreen";
 
 function AppContent() {
@@ -15,19 +15,13 @@ function AppContent() {
     if (isLoading || isProfileLoading) return;
 
     const inAuthGroup = segments[0] === "(tabs)";
-    const inLoginScreen = segments[0] === "LoginScreen";
 
     if (isAuthenticated && profile?.onboarding_completed) {
-      // Authenticated + onboarded → go to home
       if (!inAuthGroup) router.replace("/(tabs)/HomeScreen");
-    } else if (isAuthenticated && !profile?.onboarding_completed) {
-      // Authenticated but not onboarded → ensure we're not stuck in tabs or login
-      if (inAuthGroup || inLoginScreen) router.replace("/");
     } else if (!isAuthenticated) {
-      // Not authenticated → go to login
       if (inAuthGroup) router.replace("/LoginScreen");
     }
-  }, [isAuthenticated, isLoading, isProfileLoading, profile, segments]);
+  }, [isAuthenticated, isLoading, isProfileLoading, profile]);
 
   if (isLoading) {
     return (
@@ -63,7 +57,7 @@ export default function RootLayout() {
       persistOptions={{
         persister: asyncPersister,
         maxAge: 24 * 60 * 60 * 1000,
-        buster: "",
+        buster: "", // bump to a new string (e.g. app version) to wipe cache on update
       }}
       onSuccess={() => console.log("[QueryCache] Restored from storage")}
     >
