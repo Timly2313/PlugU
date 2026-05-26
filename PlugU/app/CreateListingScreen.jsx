@@ -42,7 +42,7 @@ export default function CreateListingScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'Images',
+      mediaTypes: ['images'],
       allowsMultipleSelection: true,
       quality: 0.8,
     });

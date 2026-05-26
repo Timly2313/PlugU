@@ -74,7 +74,7 @@ export default function CreatePostScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: mediaType === 'image' ? 'Images' : 'Videos',
+      mediaTypes: mediaType === 'image' ? ['images'] : ['videos'],
       allowsMultipleSelection: true,
       quality: 0.8,
     });

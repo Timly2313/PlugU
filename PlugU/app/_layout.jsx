@@ -3,26 +3,53 @@ import { View, Text, ActivityIndicator } from "react-native";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { AuthProvider, useAuth } from "../context/authContext";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { queryClient, asyncPersister } from "../lib/queryClient"; // ← add asyncPersister
+import { queryClient, asyncPersister } from "../lib/queryClient";
 import OnboardingScreen from "./OnboardingScreen";
 
 function AppContent() {
-  const { isAuthenticated, isLoading, isProfileLoading, profile, refreshProfile } = useAuth();
-  const router = useRouter();
+  const {
+    isAuthenticated,
+    isLoading,
+    isProfileLoading,
+    profile,
+    refreshProfile,
+  } = useAuth();
+
+  const router   = useRouter();
   const segments = useSegments();
 
   useEffect(() => {
+    // Wait for both loading states to finish
     if (isLoading || isProfileLoading) return;
 
-    const inAuthGroup = segments[0] === "(tabs)";
+    const inTabsGroup   = segments[0] === "(tabs)";
+    const inPublicRoute =
+      segments[0] === "LoginScreen"  ||
+      segments[0] === "SignUpScreen"  ||
+      segments[0] === "index"         ||
+      segments[0] === undefined;      // bare root
 
-    if (isAuthenticated && profile?.onboarding_completed) {
-      if (!inAuthGroup) router.replace("/(tabs)/HomeScreen");
-    } else if (!isAuthenticated) {
-      if (inAuthGroup) router.replace("/LoginScreen");
+    if (!isAuthenticated) {
+      // Not logged in — only redirect away from protected tabs
+      if (inTabsGroup) router.replace("/LoginScreen");
+      return;
     }
-  }, [isAuthenticated, isLoading, isProfileLoading, profile]);
 
+    // Logged in but profile not loaded yet — wait
+    if (!profile) return;
+
+    if (!profile.onboarding_completed) {
+      // Onboarding handled by render below — don't route, just let it render
+      return;
+    }
+
+    // Fully authenticated + onboarded — only redirect if on a public/root route
+    if (inPublicRoute) {
+      router.replace("/(tabs)/HomeScreen");
+    }
+  }, [isAuthenticated, isLoading, isProfileLoading, profile, segments]);
+
+  // ── Full screen loading (session check) ────────────────────────────────────
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -32,9 +59,11 @@ function AppContent() {
     );
   }
 
+  // ── Not authenticated — render login/signup routes ─────────────────────────
   if (!isAuthenticated) return <Slot />;
 
-  if (isProfileLoading) {
+  // ── Profile loading ────────────────────────────────────────────────────────
+  if (isProfileLoading || !profile) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#3F51B5" />
@@ -43,10 +72,17 @@ function AppContent() {
     );
   }
 
-  if (!profile?.onboarding_completed) {
-    return <OnboardingScreen onComplete={refreshProfile} onSkip={refreshProfile} />;
+  // ── Onboarding ─────────────────────────────────────────────────────────────
+  if (!profile.onboarding_completed) {
+    return (
+      <OnboardingScreen
+        onComplete={refreshProfile}
+        onSkip={refreshProfile}
+      />
+    );
   }
 
+  // ── Authenticated + onboarded ──────────────────────────────────────────────
   return <Slot />;
 }
 
@@ -57,7 +93,7 @@ export default function RootLayout() {
       persistOptions={{
         persister: asyncPersister,
         maxAge: 24 * 60 * 60 * 1000,
-        buster: "", // bump to a new string (e.g. app version) to wipe cache on update
+        buster: "",
       }}
       onSuccess={() => console.log("[QueryCache] Restored from storage")}
     >
