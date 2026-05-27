@@ -92,9 +92,7 @@ const LoginScreen = () => {
     }
 
     try {
-      await signIn({ email: email.trim().toLowerCase(), password });
-      // No manual navigation here — _layout.js handles routing
-      // once isAuthenticated + profile are resolved
+      await signIn({ email: email.trim().toLowerCase(), password:password.trim() });
     } catch (error) {
       Alert.alert('Login failed', error.message);
     }

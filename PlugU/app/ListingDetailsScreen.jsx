@@ -35,7 +35,7 @@ export default function ListingDetailScreen() {
     profile?.id,
     listingId,
     showToast,
-    listing?.is_saved ?? false,  // ← button correct on first render
+    listing?.is_saved ?? false,  
   );
   const { message, setMessage, sending, messageSent, send } =
     useSendMessage(profile, listing, setListing, showToast);

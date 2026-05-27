@@ -14,9 +14,13 @@ export const conversationService = {
     return data ?? [];
   },
 
-  sendMessage: async (conversationId, content) => {
+  sendMessage: async (conversationId, content, extra = {}) => {
     const { data, error } = await supabase.functions.invoke('send_message', {
-      body: { conversation_id: conversationId, content },
+      body: {
+        ...(conversationId ? { conversation_id: conversationId } : {}),
+        content,
+        ...extra,
+      },
     });
     if (error) {
       const detail = await error.context?.json().catch(() => null);
