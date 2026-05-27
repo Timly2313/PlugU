@@ -95,7 +95,7 @@ export default function ListingDetailScreen() {
   return (
 
     <ScreenWrapper bg="#F9FAFB">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
 
       {/* Header */}
       <View style={s.header}>

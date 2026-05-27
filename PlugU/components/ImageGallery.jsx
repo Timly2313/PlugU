@@ -1,21 +1,31 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View, Image, TouchableOpacity, Text, StyleSheet, Dimensions,
 } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { hp, wp } from '../utilities/dimensions';
+import ImageLightbox from '../components/ImageLightbox';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
 export default function ImageGallery({ images, currentIndex, onPrev, onNext, onDotPress }) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
   return (
     <View style={s.wrap}>
       {images.length > 0 ? (
-        <Image
-          source={{ uri: images[currentIndex] }}
-          style={s.image}
-          resizeMode="cover"
-        />
+        // Tap the main image to open lightbox
+        <TouchableOpacity
+          activeOpacity={0.92}
+          onPress={() => setLightboxOpen(true)}
+        >
+          <Image
+            source={{ uri: images[currentIndex] }}
+            style={s.image}
+            resizeMode="cover"
+          />
+      
+        </TouchableOpacity>
       ) : (
         <View style={s.placeholder}>
           <Text style={s.placeholderText}>No images</Text>
@@ -46,6 +56,14 @@ export default function ImageGallery({ images, currentIndex, onPrev, onNext, onD
           </View>
         </>
       )}
+
+      {/* Full-screen lightbox — opens at the currently viewed image */}
+      <ImageLightbox
+        visible={lightboxOpen}
+        urls={images}
+        initialIndex={currentIndex}
+        onClose={() => setLightboxOpen(false)}
+      />
     </View>
   );
 }
@@ -53,6 +71,17 @@ export default function ImageGallery({ images, currentIndex, onPrev, onNext, onD
 const s = StyleSheet.create({
   wrap:            { position: 'relative', backgroundColor: '#F3F4F6' },
   image:           { width: SCREEN_W, height: hp(38) },
+  tapHint: {
+    position: 'absolute',
+    bottom: hp(1.5),
+    left: '50%',
+    transform: [{ translateX: -wp(12) }],
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: wp(3),
+    paddingVertical: hp(0.5),
+    borderRadius: wp(50),
+  },
+  tapHintText:     { color: '#fff', fontSize: wp(2.8), fontWeight: '500' },
   placeholder:     { width: SCREEN_W, height: hp(38), alignItems: 'center', justifyContent: 'center', backgroundColor: '#E5E7EB' },
   placeholderText: { color: '#9CA3AF', fontSize: wp(3.5) },
   navLeft: {
