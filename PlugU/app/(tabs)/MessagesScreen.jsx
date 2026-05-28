@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import {
   View, Text, FlatList, ActivityIndicator,
-  RefreshControl, StyleSheet, Platform,
+  RefreshControl, StyleSheet, Platform, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { hp, wp } from '../../utilities/dimensions';
@@ -22,15 +22,12 @@ export default function MessagesScreen() {
     error,
     fetchConversations,
     markAsRead,
+    deleteConversation,
     refresh,
   } = useConversations();
 
-  // ── Open conversation — mark as read then navigate ─────────────────────────
   const handleOpenConversation = useCallback((conv) => {
-    // Mark read immediately so badge disappears before navigation
-    if ((conv.unread_count ?? 0) > 0) {
-      markAsRead(conv.id);
-    }
+    if ((conv.unread_count ?? 0) > 0) markAsRead(conv.id);
 
     router.push({
       pathname: '/ConversationScreen',
@@ -43,25 +40,33 @@ export default function MessagesScreen() {
     });
   }, [router, markAsRead]);
 
+  const handleDelete = useCallback(async (conversationId) => {
+    try {
+      await deleteConversation(conversationId);
+    } catch {
+      Alert.alert('Error', 'Failed to delete conversation. Please try again.');
+    }
+  }, [deleteConversation]);
+
   const renderItem = useCallback(
-    ({ item }) => <ConversationItem item={item} onPress={handleOpenConversation} />,
-    [handleOpenConversation]
+    ({ item }) => (
+      <ConversationItem 
+        item={item} 
+        onPress={handleOpenConversation}
+        onDelete={handleDelete}
+      />
+    ),
+    [handleOpenConversation, handleDelete]
   );
 
   const renderEmpty = useCallback(() => {
     if (loading) return null;
-    return (
-      <EmptyState
-        error={error}
-        onRetry={() => { fetchConversations(); }}
-      />
-    );
+    return <EmptyState error={error} onRetry={fetchConversations} />;
   }, [loading, error, fetchConversations]);
 
   return (
     <ScreenWrapper bg="#fff">
       <View style={s.container}>
-        {/* Header */}
         <View style={s.header}>
           <Text style={s.headerTitle}>Messages</Text>
           {loading && !refreshing && (
@@ -69,14 +74,14 @@ export default function MessagesScreen() {
           )}
         </View>
 
-        {/* Skeleton on first load */}
         {loading && conversations.length === 0 && (
           <View>
-            {Array.from({ length: 6 }).map((_, i) => <SkeletonItem key={i} />)}
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonItem key={i} />
+            ))}
           </View>
         )}
 
-        {/* List */}
         {(!loading || conversations.length > 0) && (
           <FlatList
             data={conversations}

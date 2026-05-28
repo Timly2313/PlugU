@@ -30,5 +30,18 @@ export const conversationService = {
     return data;
   },
 
+deleteMessage: async (messageId) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { error } = await supabase
+    .from('messages')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', messageId)
+    .eq('sender_id', user.id);
+
+  if (error) throw error;
+},
+
   PAGE_SIZE,
 };

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View, FlatList, ActivityIndicator,
   TouchableOpacity, Text, StyleSheet,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, Alert, Vibration,
 } from 'react-native';
 import { AlertCircle } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -36,9 +36,11 @@ export default function ConversationScreen() {
     loadingMore,
     fetchError,
     sending,
+    onlineParticipants,
     fetchMessages,
     loadMore,
     sendMessage,
+    deleteMessage,
   } = useMessages(conversationId, profile?.id);
 
   // ── Send ───────────────────────────────────────────────────────────────────
@@ -48,6 +50,25 @@ export default function ConversationScreen() {
     setInputText('');
     await sendMessage(text);
   }, [inputText, sendMessage]);
+
+  // ── Delete message ───────────────────────────────────────────────────────────
+  const handleDeleteMessage = useCallback((messageId, isMe) => {
+    if (!isMe) return; 
+    
+    Vibration.vibrate(30);
+    Alert.alert(
+      'Delete Message',
+      'Are you sure you want to delete this message?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteMessage(messageId),
+        },
+      ]
+    );
+  }, [deleteMessage]);
 
   // ── Render item ────────────────────────────────────────────────────────────
   const renderItem = useCallback(({ item, index }) => {
@@ -62,9 +83,10 @@ export default function ConversationScreen() {
         item={item}
         isMe={isMe}
         showAvatar={showAvatar}
+        onLongPress={() => handleDeleteMessage(item.id, isMe)}
       />
     );
-  }, [messages, profile?.id]);
+  }, [messages, profile?.id, handleDeleteMessage]);
 
   const keyExtractor = useCallback((item) => item.id, []);
 
@@ -119,6 +141,7 @@ export default function ConversationScreen() {
         listingTitle={listingTitle}
         avatarUrl={avatarUrl}
         onBack={() => router.back()}
+        isOnline={onlineParticipants.length > 0}
       />
 
       <KeyboardAvoidingView

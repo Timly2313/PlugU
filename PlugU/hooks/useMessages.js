@@ -25,8 +25,10 @@ export function useMessages(conversationId, currentUserId) {
   const [hasMore,        setHasMore]        = useState(true);
   const [fetchError,     setFetchError]     = useState(null);
   const [sending,        setSending]        = useState(false);
+  const [onlineParticipants, setOnlineParticipants] = useState([]);
 
   const oldestIdRef = useRef(null);
+  const channelRef = useRef(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchMessages = useCallback(async ({ beforeId = null, append = false } = {}) => {
@@ -60,67 +62,128 @@ export function useMessages(conversationId, currentUserId) {
     fetchMessages();
   }, [fetchMessages]);
 
-  // ── Realtime ───────────────────────────────────────────────────────────────
+  // ── Realtime messages + presence ───────────────────────────────────────────
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || !currentUserId) return;
 
-    const channel = supabase
-      .channel(`conversation-${conversationId}`)
-      .on('postgres_changes', {
-        event:  'INSERT',
-        schema: 'public',
-        table:  'messages',
-        filter: `conversation_id=eq.${conversationId}`,
-      }, async (payload) => {
-        const newMsg = payload.new;
+    let mounted = true;
 
-        if (newMsg.sender_id === currentUserId) {
-          // Replace optimistic placeholder
-          const { data } = await supabase.rpc('get_conversation_messages', {
-            p_conversation_id: conversationId,
-            p_limit:           1,
-            p_before_id:       null,
+    const setup = async () => {
+      // Track presence - mark user as online in this conversation
+      const channel = supabase.channel(`conversation-${conversationId}`, {
+        config: {
+          presence: {
+            key: currentUserId,
+          },
+        },
+      });
+
+      channel
+        // ── Presence: track who's online ──────────────────────────────────
+        .on('presence', { event: 'sync' }, () => {
+          const state = channel.presenceState();
+          const users = Object.values(state)
+            .flat()
+            .filter((p) => p.user_id !== currentUserId)
+            .map((p) => p.user_id);
+          if (mounted) setOnlineParticipants([...new Set(users)]);
+        })
+        .on('presence', { event: 'join' }, ({ newPresences }) => {
+          setOnlineParticipants((prev) => {
+            const joined = newPresences
+              .filter((p) => p.user_id !== currentUserId)
+              .map((p) => p.user_id);
+            return [...new Set([...prev, ...joined])];
           });
-          if (data?.[0]) {
+        })
+        .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+          const left = leftPresences.map((p) => p.user_id);
+          setOnlineParticipants((prev) => prev.filter((id) => !left.includes(id)));
+        })
+        
+        // ── Realtime: new messages ────────────────────────────────────────
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        }, async (payload) => {
+          const newMsg = payload.new;
+
+          // Skip if it's our own message (handled optimistically)
+          if (newMsg.sender_id === currentUserId) {
+            // Replace optimistic placeholder with real message
             setMessages((prev) => {
               const filtered = prev.filter(
                 (m) => !(m._optimistic && m.content === newMsg.content)
               );
-              return prev.some((m) => m.id === data[0].id)
-                ? filtered
-                : [data[0], ...filtered];
+              if (filtered.some((m) => m.id === newMsg.id)) return filtered;
+              return [newMsg, ...filtered];
+            });
+            return;
+          }
+
+          // Another user's message - add with sender info
+          const { data } = await supabase.rpc('get_conversation_messages', {
+            p_conversation_id: conversationId,
+            p_limit: 1,
+            p_before_id: null,
+          });
+          
+          if (data?.[0] && mounted) {
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === data[0].id)) return prev;
+              return [data[0], ...prev];
             });
           }
-          return;
-        }
-
-        // Another user's message
-        const { data } = await supabase.rpc('get_conversation_messages', {
-          p_conversation_id: conversationId,
-          p_limit:           1,
-          p_before_id:       null,
-        });
-        if (data?.[0]?.id === newMsg.id) {
+        })
+        
+        // ── Realtime: message status updates ────────────────────────────────
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        }, (payload) => {
+          if (!mounted) return;
           setMessages((prev) =>
-            prev.some((m) => m.id === data[0].id) ? prev : [data[0], ...prev]
+            prev.map((m) =>
+              m.id === payload.new.id ? { ...m, status: payload.new.status } : m
+            )
           );
-        }
-      })
-      .on('postgres_changes', {
-        event:  'UPDATE',
-        schema: 'public',
-        table:  'messages',
-        filter: `conversation_id=eq.${conversationId}`,
-      }, (payload) => {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === payload.new.id ? { ...m, status: payload.new.status } : m
-          )
-        );
-      })
-      .subscribe();
+        })
+        
+        // ── Realtime: message deleted ─────────────────────────────────────
+        .on('postgres_changes', {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        }, (payload) => {
+          if (!mounted) return;
+          setMessages((prev) => prev.filter((m) => m.id !== payload.old.id));
+        })
+        
+        .subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            await channel.track({
+              user_id: currentUserId,
+              online_at: new Date().toISOString(),
+            });
+          }
+        });
 
-    return () => supabase.removeChannel(channel);
+      channelRef.current = channel;
+    };
+
+    setup();
+
+    return () => {
+      mounted = false;
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+    };
   }, [conversationId, currentUserId]);
 
   // ── Load more ──────────────────────────────────────────────────────────────
@@ -164,6 +227,18 @@ export function useMessages(conversationId, currentUserId) {
     }
   }, [sending, conversationId, currentUserId]);
 
+  // ── Delete message ─────────────────────────────────────────────────────────
+  const deleteMessage = useCallback(async (messageId) => {
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    
+    try {
+      await conversationService.deleteMessage(messageId);
+    } catch (err) {
+      console.error('[useMessages] delete error:', err);
+      fetchMessages({ silent: true });
+    }
+  }, [fetchMessages]);
+
   return {
     messages,
     loadingInitial,
@@ -171,8 +246,10 @@ export function useMessages(conversationId, currentUserId) {
     hasMore,
     fetchError,
     sending,
+    onlineParticipants,
     fetchMessages,
     loadMore,
     sendMessage,
+    deleteMessage,
   };
 }

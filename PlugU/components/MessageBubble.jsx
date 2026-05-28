@@ -1,50 +1,91 @@
-import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import React, { useRef, useCallback } from 'react';
+import { View, Text, Image, StyleSheet, Animated, Vibration, Platform, Pressable } from 'react-native';
 import { hp, wp } from '../utilities/dimensions';
 import { formatMessageTime, getInitials } from '../utilities/conversationUtils';
 
-export default function MessageBubble({ item, isMe, showAvatar }) {
+export default function MessageBubble({ item, isMe, showAvatar, onLongPress, onPress }) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const animateTo = useCallback((value) => {
+    Animated.spring(scaleAnim, {
+      toValue: value,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 40,
+      duration: 150,
+    }).start();
+  }, []);
+
+  const handlePressIn = () => animateTo(0.96);
+  const handlePressOut = () => animateTo(1);
+
+  const handleLongPress = () => {
+    if (Platform.OS === 'ios') Vibration.vibrate(50);
+    else Vibration.vibrate(30);
+    animateTo(1);
+    onLongPress?.();
+  };
+
+  const handlePress = () => {
+    onPress?.();
+  };
+
   const initials = getInitials(item.sender_username ?? '');
 
   return (
-    <View style={[s.wrapper, isMe ? s.wrapperMe : s.wrapperThem]}>
-      {/* Avatar slot — only for other people's messages */}
-      {!isMe && (
-        <View style={s.avatarSlot}>
-          {showAvatar ? (
-            item.sender_avatar_url ? (
-              <Image source={{ uri: item.sender_avatar_url }} style={s.avatar} />
+    <Pressable 
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onLongPress={handleLongPress}
+      delayLongPress={500}
+    >
+      <View style={[s.wrapper, isMe ? s.wrapperMe : s.wrapperThem]}>
+        {/* Avatar slot — only for other people's messages */}
+        {!isMe && (
+          <View style={s.avatarSlot}>
+            {showAvatar ? (
+              item.sender_avatar_url ? (
+                <Image source={{ uri: item.sender_avatar_url }} style={s.avatar} />
+              ) : (
+                <View style={s.avatarFallback}>
+                  <Text style={s.avatarText}>{initials}</Text>
+                </View>
+              )
             ) : (
-              <View style={s.avatarFallback}>
-                <Text style={s.avatarText}>{initials}</Text>
-              </View>
-            )
-          ) : (
-            <View style={s.avatarSpacer} />
-          )}
-        </View>
-      )}
+              <View style={s.avatarSpacer} />
+            )}
+          </View>
+        )}
 
-      <View style={[s.bubble, isMe ? s.bubbleMe : s.bubbleThem]}>
-        <Text style={[s.text, isMe ? s.textMe : s.textThem]}>
-          {item.content}
-        </Text>
-
-        <View style={s.meta}>
-          <Text style={[s.time, isMe ? s.timeMe : s.timeThem]}>
-            {formatMessageTime(item.created_at)}
+        <Animated.View
+          style={[
+            s.bubble,
+            isMe ? s.bubbleMe : s.bubbleThem,
+            item.status === 'failed' && s.bubbleFailed,
+            { transform: [{ scale: scaleAnim }] },
+          ]}
+        >
+          <Text style={[s.text, isMe ? s.textMe : s.textThem]}>
+            {item.content}
           </Text>
-          {isMe && (
-            <Text style={s.status}>
-              {item.status === 'read'      ? '✓✓'
-               : item.status === 'failed' ? '✗'
-               : item.status === 'sending' ? '○'
-               : '✓'}
+
+          <View style={s.meta}>
+            <Text style={[s.time, isMe ? s.timeMe : s.timeThem]}>
+              {formatMessageTime(item.created_at)}
             </Text>
-          )}
-        </View>
+            {isMe && (
+              <Text style={s.status}>
+                {item.status === 'read'      ? '✓✓'
+                 : item.status === 'failed' ? '✗'
+                 : item.status === 'sending' ? '○'
+                 : '✓'}
+              </Text>
+            )}
+          </View>
+        </Animated.View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -60,6 +101,7 @@ const s = StyleSheet.create({
   bubble:        { maxWidth: '75%', borderRadius: wp(5), paddingHorizontal: wp(4), paddingVertical: hp(1.1) },
   bubbleMe:      { backgroundColor: '#3F51B5', borderBottomRightRadius: wp(1.5) },
   bubbleThem:    { backgroundColor: '#fff', borderBottomLeftRadius: wp(1.5), borderWidth: StyleSheet.hairlineWidth, borderColor: '#E5E7EB' },
+  bubbleFailed:  { backgroundColor: '#FEE2E2', borderColor: '#EF4444' },
   text:          { fontSize: wp(3.8), lineHeight: hp(2.6) },
   textMe:        { color: '#fff' },
   textThem:      { color: '#111827' },

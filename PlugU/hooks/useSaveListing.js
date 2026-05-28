@@ -23,7 +23,6 @@ export function useSaveListing(userId, listingId, showToast, initialSaved = fals
     listingService
       .checkSaved(userId, listingId)
       .then((isSaved) => {
-        console.log('[useSaveListing] DB confirmed saved:', isSaved);
         setSaved(isSaved);
       })
       .catch((err) => console.error('[useSaveListing] checkSaved error:', err));
@@ -55,7 +54,6 @@ export function useSaveListing(userId, listingId, showToast, initialSaved = fals
         showToast('Listing removed');
       }
     } catch (err) {
-      console.error('[useSaveListing] toggle error:', err);
       setSaved(!newSaved); // revert on failure
       showToast('Something went wrong', 'error');
     } finally {

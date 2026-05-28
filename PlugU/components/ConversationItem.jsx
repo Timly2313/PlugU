@@ -1,18 +1,48 @@
-import React, { useRef } from 'react';
-import { View, Text, TouchableOpacity, Animated, StyleSheet } from 'react-native';
+import React, { useRef, useCallback } from 'react';
+import { 
+  View, Text, TouchableOpacity, Animated, 
+  StyleSheet, Alert, Vibration 
+} from 'react-native';
 import { Clock } from 'lucide-react-native';
 import { hp, wp } from '../utilities/dimensions';
 import Avatar from '../components/Avatar';
 import { timeAgo } from '../utilities/communityUtils';
 import { resolveDisplayName } from '../utilities/messageUtils';
 
-const ConversationItem = React.memo(({ item, onPress }) => {
+const ConversationItem = React.memo(({ item, onPress, onDelete }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  const handlePressIn  = () =>
-    Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, speed: 50 }).start();
-  const handlePressOut = () =>
-    Animated.spring(scaleAnim, { toValue: 1,    useNativeDriver: true, speed: 50 }).start();
+  const animateTo = useCallback((value) => {
+    Animated.spring(scaleAnim, { 
+      toValue: value, 
+      useNativeDriver: true, 
+      friction: 8,
+      tension: 40,
+    }).start();
+  }, []);
+
+  const handlePressIn  = () => animateTo(0.97);
+  const handlePressOut = () => animateTo(1);
+
+  const handleLongPress = useCallback(() => {
+    Vibration.vibrate(50);
+    
+    const name = resolveDisplayName(item);
+    
+    Alert.alert(
+      'Delete Conversation',
+      `Remove "${name}" from your messages? This won't delete the conversation for the other person.`,
+      [
+        { text: 'Cancel', style: 'cancel', onPress: () => animateTo(1) },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: () => onDelete?.(item.id)
+        },
+      ],
+      { cancelable: true, onDismiss: () => animateTo(1) }
+    );
+  }, [item, onDelete, animateTo]);
 
   const displayName = resolveDisplayName(item);
   const avatarUrl   = (item.participant_avatars ?? [])[0] ?? null;
@@ -25,6 +55,8 @@ const ConversationItem = React.memo(({ item, onPress }) => {
       onPress={() => onPress(item)}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      onLongPress={handleLongPress}
+      delayLongPress={500}
     >
       <Animated.View
         style={[
@@ -33,7 +65,6 @@ const ConversationItem = React.memo(({ item, onPress }) => {
           { transform: [{ scale: scaleAnim }] },
         ]}
       >
-        {/* Avatar — uses shared Avatar component */}
         <Avatar
           uri={avatarUrl}
           name={displayName}
@@ -41,7 +72,6 @@ const ConversationItem = React.memo(({ item, onPress }) => {
           borderWidth={0}
         />
 
-        {/* Content */}
         <View style={s.content}>
           <View style={s.header}>
             <Text style={s.name} numberOfLines={1}>{displayName}</Text>
@@ -63,7 +93,6 @@ const ConversationItem = React.memo(({ item, onPress }) => {
           ) : null}
         </View>
 
-        {/* Unread badge */}
         {isUnread && (
           <View style={s.badge}>
             <Text style={s.badgeText}>
