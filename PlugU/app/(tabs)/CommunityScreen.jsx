@@ -64,6 +64,7 @@ export default function CommunityScreen() {
     if (isLoading) return null;
     return (
       <View style={s.empty}>
+        <StatusBar style="auto" />
         <PlusSquare size={wp(14)} color="#C7D2FE" />
         <Text style={s.emptyTitle}>Nothing here yet</Text>
         <Text style={s.emptySub}>Be the first to post something</Text>
@@ -76,7 +77,7 @@ export default function CommunityScreen() {
 
   return (
     <ScreenWrapper bg="#fff">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

@@ -15,7 +15,7 @@ function ListingCard({ item }) {
     <TouchableOpacity
       style={s.card}
       activeOpacity={0.88}
-      onPress={() => router.push({ pathname: '/ListingDetailScreen', params: { listingId: item.id } })}
+      onPress={() => router.push({ pathname: '/ListingDetailsScreen', params: { listingId: item.id } })}
     >
       <View style={s.imageWrap}>
         {imageUri ? (

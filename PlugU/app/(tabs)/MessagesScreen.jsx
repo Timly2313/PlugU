@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import {
   View, Text, FlatList, ActivityIndicator,
-  RefreshControl, StyleSheet, Platform, Alert,
+  RefreshControl, StyleSheet, Platform, Alert,StatusBar
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { hp, wp } from '../../utilities/dimensions';
@@ -66,6 +66,7 @@ export default function MessagesScreen() {
 
   return (
     <ScreenWrapper bg="#fff">
+      <StatusBar style="auto" />
       <View style={s.container}>
         <View style={s.header}>
           <Text style={s.headerTitle}>Messages</Text>

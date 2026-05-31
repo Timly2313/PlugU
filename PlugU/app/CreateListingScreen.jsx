@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView,
-  ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform,
+  ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { ArrowLeft, X } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -34,7 +34,7 @@ export default function CreateListingScreen() {
 
   return (
     <ScreenWrapper>
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <View style={s.container}>
 
         {/* Header */}
