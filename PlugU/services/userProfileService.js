@@ -20,6 +20,13 @@ export const userProfileService = {
     return data ?? [];
   },
 
+  trackProfileView: async (viewedUserId) => {
+    const { error } = await supabase.functions.invoke('track_profile_view', {
+      body: { viewed_id: viewedUserId }, 
+    });
+    if (error) console.warn('[trackProfileView] failed silently:', error.message);
+  },
+  
   follow: async (followerId, followingId) => {
     const { error } = await supabase
       .from('follows')

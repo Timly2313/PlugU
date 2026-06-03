@@ -26,7 +26,8 @@ export default function UserProfileScreen() {
     profile, listings, loading,
     following, followLoading, followerCount,
     fadeAnim, slideAnim,
-    toggleFollow,
+    toggleFollow,handleSettings,
+    handleLogout,
   } = useUserProfile(userId, me?.id);
 
   const { startOrOpenConversation, starting } = useStartConversation(me?.id);
@@ -87,6 +88,8 @@ export default function UserProfileScreen() {
             profile={profile}
             onAvatarPress={openViewer}
             onBannerPress={openViewer}
+            onSettingsPress={handleSettings}
+            onLogoutPress={handleLogout}
           />
         </Animated.View>
 

@@ -70,6 +70,8 @@ export function getNotificationRoute(notification) {
       };
     case "profile":
       return { pathname: "/UserProfileScreen", params: { userId: target_id } };
+    case "follow":
+      return { pathname: "/UserProfileScreen", params: { userId: target_id } };
     default:
       return null;
   }

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Animated } from 'react-native';
+import { Animated , Alert} from 'react-native';
 import { userProfileService } from '../services/userProfileService';
+import { router } from 'expo-router';
+import { useAuth } from '../context/authContext';
 
 export function useUserProfile(userId, currentUserId) {
   const [profile,       setProfile]       = useState(null);
@@ -12,6 +14,8 @@ export function useUserProfile(userId, currentUserId) {
 
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+
+  const { signOut } = useAuth();
 
   const loadData = useCallback(async () => {
     if (!userId) return;
@@ -28,6 +32,10 @@ export function useUserProfile(userId, currentUserId) {
         setFollowerCount(profileData.follower_count ?? 0);
       }
       setListings(listingData);
+
+      if (currentUserId !== userId) {
+        userProfileService.trackProfileView(userId);
+      }
 
       Animated.parallel([
         Animated.timing(fadeAnim,  { toValue: 1, duration: 350, useNativeDriver: true }),
@@ -46,7 +54,6 @@ export function useUserProfile(userId, currentUserId) {
     if (!currentUserId || followLoading) return;
     setFollowLoading(true);
     const wasFollowing = following;
-    // Optimistic
     setFollowing(!wasFollowing);
     setFollowerCount((c) => wasFollowing ? Math.max(0, c - 1) : c + 1);
     try {
@@ -57,7 +64,6 @@ export function useUserProfile(userId, currentUserId) {
       }
     } catch (err) {
       console.error('[useUserProfile] follow error:', err);
-      // Revert
       setFollowing(wasFollowing);
       setFollowerCount((c) => wasFollowing ? c + 1 : Math.max(0, c - 1));
     } finally {
@@ -65,10 +71,26 @@ export function useUserProfile(userId, currentUserId) {
     }
   }, [currentUserId, userId, following, followLoading]);
 
+  const handleSettings = useCallback(() => {
+    router.push('SettingsScreen');
+  }, []);
+
+   const handleLogout = useCallback(() => {
+      Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out', style: 'destructive',
+          onPress: async () => { await signOut(); router.replace('/LoginScreen'); },
+        },
+      ]);
+    }, [signOut]);
+
   return {
     profile, listings, loading,
     following, followLoading, followerCount,
     fadeAnim, slideAnim,
     toggleFollow,
+    handleSettings,
+    handleLogout,
   };
 }
