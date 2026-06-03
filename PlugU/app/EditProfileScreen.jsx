@@ -10,7 +10,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  StatusBar,
   ActivityIndicator,
 } from 'react-native';
 import {
@@ -32,6 +31,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useAuth } from '../context/authContext';
 import { uploadMediaToSupabase } from '../services/imageService';
+import { StatusBar } from 'expo-status-bar';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 // ─── Section header component ────────────────────────────────────────────────
@@ -253,7 +253,7 @@ export default function EditProfileScreen() {
 
   return (
     <>
-      <StatusBar barStyle="dark-content" backgroundColor="white" />
+      <StatusBar style="auto" />
       <ScreenWrapper bg="#F9FAFB">
         <KeyboardAvoidingView
           style={styles.container}

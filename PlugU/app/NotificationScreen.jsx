@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { ArrowLeft, CheckCheck, Filter } from 'lucide-react-native';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { hp, wp } from '../utilities/dimensions';
 import ScreenWrapper            from '../components/ScreenWrapper';
 import { useNotifications }     from '../hooks/useNotifications';
@@ -55,6 +56,7 @@ export default function NotificationsScreen() {
 
   return (
     <ScreenWrapper bg="#F8F9FB">
+      <StatusBar style="auto" />
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>

@@ -39,7 +39,7 @@ export default function CreatePostScreen() {
 
   return (
     <ScreenWrapper bg="#F9FAFB">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <View style={s.container}>
 
         {/* Header */}

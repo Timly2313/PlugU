@@ -11,6 +11,7 @@ import { useAuth }         from '../context/authContext';
 import { useSavedListings } from '../hooks/useSavedListings';
 import SavedListingCard    from '../components/SavedListingCard';
 import EmptyState          from '../components/EmptySavedState';
+import { StatusBar } from 'expo-status-bar';
 
 export default function SavedListingsScreen() {
   const { profile } = useAuth();
@@ -35,6 +36,7 @@ export default function SavedListingsScreen() {
 
   return (
     <ScreenWrapper bg="#F9FAFB">
+     <StatusBar style="auto" />  
       {/* Header */}
       <View style={s.header}>
         <View style={s.headerLeft}>

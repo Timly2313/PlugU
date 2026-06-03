@@ -1,50 +1,83 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import {
-  View, Modal, TouchableOpacity, StyleSheet,
-  Dimensions, StatusBar as RNStatusBar,
+  Modal,
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
 } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
-import { X } from 'lucide-react-native';
-import { wp } from '../utilities/dimensions';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import { X, Volume2, VolumeX } from 'lucide-react-native';
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
-const STATUS_BAR_H = RNStatusBar.currentHeight ?? 44;
+const { width, height } = Dimensions.get('window');
 
-export default function VideoLightbox({ visible, url, onClose }) {
-  const videoRef = useRef(null);
-
-  useEffect(() => {
-    if (!visible && videoRef.current) videoRef.current.pauseAsync().catch(() => {});
-  }, [visible]);
+export default function VideoLightbox({
+  visible,
+  url,
+  onClose,
+}) {
+  const player = useVideoPlayer(url, (player) => {
+    player.loop = false;
+    player.play();
+  });
 
   if (!visible) return null;
 
   return (
-    <Modal visible transparent={false} animationType="fade" statusBarTranslucent onRequestClose={onClose}>
-      <View style={s.container}>
-        <TouchableOpacity
-          style={s.closeBtn} onPress={onClose}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <X size={wp(6)} color="#fff" />
-        </TouchableOpacity>
-        <Video
-          ref={videoRef}
-          source={{ uri: url }}
-          style={s.video}
-          resizeMode={ResizeMode.CONTAIN}
-          shouldPlay useNativeControls isLooping={false}
+    <Modal
+      visible={visible}
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <View style={styles.container}>
+        <VideoView
+          player={player}
+          style={styles.video}
+          contentFit="contain"
+          nativeControls
         />
+
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={onClose}
+        >
+          <X size={24} color="#fff" />
+        </TouchableOpacity>
+
+        
       </View>
     </Modal>
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
-  closeBtn:  {
-    position: 'absolute', top: STATUS_BAR_H + 8, right: wp(4), zIndex: 10,
-    backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 20, padding: 8,
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
   },
-  video:     { width: SCREEN_W, height: SCREEN_H * 0.75 },
+
+  video: {
+    width,
+    height,
+  },
+
+  closeBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 10,
+    borderRadius: 30,
+  },
+
+  muteBtn: {
+    position: 'absolute',
+    bottom: 40,
+    right: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 10,
+    borderRadius: 30,
+  },
 });
