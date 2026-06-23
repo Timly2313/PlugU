@@ -73,7 +73,7 @@ export default function StatsCards({ stats, listingCount, fadeAnim }) {
 
 const s = StyleSheet.create({
   row:      { flexDirection: 'row', paddingHorizontal: wp(4), gap: wp(2), marginTop: hp(2) },
-  card:     { flex: 1, borderRadius: wp(4), padding: wp(2.5), alignItems: 'center', gap: hp(0.4), position: 'relative' },
+  card:     { flex: 1, borderRadius: wp(4), padding: wp(2), alignItems: 'center', gap: hp(0.4), position: 'relative' },
   chevron:  { position: 'absolute', top: wp(2), right: wp(2) },
   iconWrap: { width: wp(9), height: wp(9), borderRadius: wp(4.5), alignItems: 'center', justifyContent: 'center', marginBottom: hp(0.2) },
   value:    { fontSize: wp(4.5), fontWeight: '800' },

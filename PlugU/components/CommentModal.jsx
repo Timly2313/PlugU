@@ -50,7 +50,6 @@ const CommentRow = memo(({ comment, onLike }) => {
             style={s.likeButton}
             activeOpacity={0.7}
             onPress={() => {
-              console.log('like pressed', comment.id); // debug
               onLike(comment.id);
             }}
           >

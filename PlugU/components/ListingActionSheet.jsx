@@ -46,7 +46,7 @@ export default function ListingActionSheet({
           {/* Edit */}
           <TouchableOpacity
             style={s.option}
-            onPress={() => { onClose(); router.push({ pathname: '/CreateListingScreen', params: { listingId: listing?.id } }); }}
+            onPress={() => { onClose(); router.push({ pathname: '/EditListingScreen', params: { listingId: listing?.id } }); }}
           >
             <View style={[s.optionIcon, { backgroundColor: '#EEF2FF' }]}>
               <Pencil size={wp(4)} color="#3F51B5" />

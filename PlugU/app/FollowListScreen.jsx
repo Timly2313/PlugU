@@ -51,7 +51,7 @@ export default function FollowListScreen() {
   }, []);
 
   return (
-    <ScreenWrapper bg="#fff">
+    <ScreenWrapper bg="#F9FAFB">
       <StatusBar style="auto" />
       {/* Header */}
       <View style={s.header}>
